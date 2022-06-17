@@ -17,8 +17,8 @@ Internally, it stores these exponents as a tuple in the order (L,T,M,A,E,K,I).
 
 import numpy as np
 
-from .exceptions import IncompatibleDimensionality
-from .exceptions import NotADimObject
+from .exceptions import IncompatibleDimensions
+from .exceptions import NotDimLike
 
 _DERIVED_DIMS = {
     (1,0,0,0,0,0,0):'length',
@@ -44,75 +44,94 @@ _DERIVED_DIMS = {
 }
 
 class Dim(object):
-    __slot__ = ('dim')
+    __slot__ = ('_exp')
 
     def __init__(self, dim=None, *, 
                  length=0, time=0, mass=0, angle=0, charge=0, temp=0, illum=0 ):
-        self.dim = (length,time,mass,angle,charge,temp,illum)
+        """Dim constructor
+
+        A Dim object can be contructed by one of three methods:
+
+            - specify the exponents for each of the fundamental properties:
+              - length (number): optional 
+              - time (number): optional 
+              - mass (number): optional 
+              - angle (number): optional 
+              - charge (number): optional 
+              - temp (number): optional 
+              - illum (number): optional 
+
+            - specify a list of the exponents on the 7 fundamental properties:
+              - dim (tuple): (length, time, mass, angle, charge, temp, illum)
+
+            - copy constructor
+              - dim (Dim): existing Dim object
+        """
+        self._exp = (length,time,mass,angle,charge,temp,illum)
         if dim is not None:
-            if hasattr(dim,'dim'):
-                dim = dim.dim
+            if hasattr(dim,'_exp'):
+                dim = dim._exp
             try:
                 t = [int(dim[i]) for i in range(7)]
             except:
-                raise NotADimObject(dim)
-            if np.any(self.dim):
+                raise NotDimLike(dim)
+            if np.any(self._exp):
                 raise TypeError("Cannot specify both the dim tuple and individual exponents")
-            self.dim = dim[:7]
+            self._exp = dim[:7]
 
     @property
     def dimensionless(self):
-        return not np.any(self.dim)
+        return not np.any(self._exp)
 
-    def assert_compatible(self,other):
-        if self != other:
-            raise IncompatibleDimensionality(self,other)
+    @property
+    def is_angle(self):
+        return self._exp in ((0,0,0,1,0,0,0),(0,0,0,0,0,0,0))
+
 
     def __eq__(self,other):
-        print("__eq__")
         try:
-            return self.dim == other.dim
+            return self._exp == other._exp
         except:
             return False
 
     def __mul__(self,other):
         try:
-            return Dim(tuple(a+b for a,b in zip(self.dim,other.dim)))
+            return Dim(tuple(a+b for a,b in zip(self._exp,other._exp)))
         except:
-            raise NotADimObject(other)
+            raise NotDimLike(other)
 
     __rmul__ = __mul__
 
     def __truediv__(self,other):
         try:
-            return Dim(tuple(a-b for a,b in zip(self.dim,other.dim)))
+            return Dim(tuple(a-b for a,b in zip(self._exp,other._exp)))
         except:
-            raise NotADimObject(other)
+            raise NotDimLike(other)
 
     def __rtruediv__(self,other):
         try:
-            return Dim(tuple(b-a for a,b in zip(self.dim,other.dim)))
+            return Dim(tuple(b-a for a,b in zip(self._exp,other._exp)))
         except:
-            raise NotADimObject(other)
+            raise NotDimLike(other)
 
     def __pow__(self,n):
-        return Dim(tuple(a*n for a in self.dim))
+        return Dim(tuple(a*n for a in self._exp))
 
     def __repr__(self):
         keys = ('length','time','mass','angle','charge','temp','illum')
         return (f"Dim("
-                + ",".join(f"{n}={e}" for n,e in zip(keys,self.dim) if e)
+                + ",".join(f"{n}={e}" for n,e in zip(keys,self._exp) if e)
                 + ",)")
 
     def __str__(self):
-        if self.dim in _DERIVED_DIMS:
-            return _DERIVED_DIMS[self.dim]
+        if self._exp in _DERIVED_DIMS:
+            return _DERIVED_DIMS[self._exp]
 
         names = ('L','T','M','A','C','K','I')
         num = " ".join(f"{n}" if e==1 else f"{n}^{e}" for n,e in
-                       zip(names,self.dim) if e>0)
+                       zip(names,self._exp) if e>0)
         den = " ".join(f"{n}" if e==-1 else f"{n}^{-e}" for n,e in
-                       zip(names,self.dim) if e<0)
+                       zip(names,self._exp) if e<0)
 
         if num:
             if den:

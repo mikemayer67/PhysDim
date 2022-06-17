@@ -1,49 +1,48 @@
 import unittest
 
-from PhysDimArray.dim import Dim 
+from PhysDim import Dim 
 
 _length = (1,0,0,0,0,0,0)
 _time = (0,1,0,0,0,0,0)
 _mass = (0,0,1,0,0,0,0)
 _angle = (0,0,0,1,0,0,0)
 
-from PhysDimArray.exceptions import IncompatibleDimensionality
-from PhysDimArray.exceptions import NotADimObject
+from PhysDim.exceptions import NotDimLike
 
 class DimTests(unittest.TestCase):
     def test_init_kwargs(self):
         l = Dim(length=1)
-        self.assertEqual(l.dim,_length)
+        self.assertEqual(l._exp,_length)
 
         t = Dim(time=1)
-        self.assertEqual(t.dim,_time)
+        self.assertEqual(t._exp,_time)
 
         v = Dim(length=1,time=-1)
         v_dim = tuple(l-t for l,t in zip(_length,_time))
-        self.assertEqual(v.dim, v_dim)
+        self.assertEqual(v._exp, v_dim)
 
     def test_init_tuple(self):
         l = Dim(_length)
-        self.assertEqual(l.dim,_length)
+        self.assertEqual(l._exp,_length)
 
         t = Dim(_time)
-        self.assertEqual(t.dim,_time)
+        self.assertEqual(t._exp,_time)
 
         v_dim = tuple(l-t for l,t in zip(_length,_time))
         v = Dim(v_dim)
-        self.assertEqual(v.dim, v_dim)
+        self.assertEqual(v._exp, v_dim)
 
     def test_init_copy(self):
         l = Dim(_length)
         x = Dim(l)
-        self.assertEqual(l.dim,x.dim)
+        self.assertEqual(l._exp,x._exp)
 
     def test_bad_init(self):
-        with self.assertRaises(NotADimObject):
+        with self.assertRaises(NotDimLike):
             v = Dim('cat')
-        with self.assertRaises(NotADimObject):
+        with self.assertRaises(NotDimLike):
             v = Dim((1, 2, 0))
-        with self.assertRaises(NotADimObject):
+        with self.assertRaises(NotDimLike):
             v = Dim((1, 2, 0, 'cat'))
         with self.assertRaises(TypeError):
             v = Dim(_length, length=1)
@@ -56,41 +55,47 @@ class DimTests(unittest.TestCase):
         x = l/l
         self.assertTrue(x.dimensionless)
 
-    def test_assert_compatible(self):
+    def test_is_angle(self):
         l = Dim(_length)
         t = Dim(_time)
+        th = Dim(_angle)
+        x = Dim()
         v = l/t
-        with self.assertRaises(IncompatibleDimensionality) as cm:
-            v.assert_compatible(l)
+
+        self.assertFalse(l.is_angle)
+        self.assertTrue(th.is_angle)
+        self.assertTrue(x.is_angle)
+        self.assertFalse((th*th).is_angle)
+        self.assertTrue((l/l).is_angle)
 
     def test_mul(self):
         l = Dim(_length)
         t = Dim(_time)
         lt = l * t
-        self.assertEqual(lt.dim, tuple(a+b for a,b in zip(_length,_time)))
+        self.assertEqual(lt._exp, tuple(a+b for a,b in zip(_length,_time)))
 
-        with self.assertRaises(NotADimObject) as cm:
+        with self.assertRaises(NotDimLike) as cm:
             lx = l * 5
-        with self.assertRaises(NotADimObject) as cm:
+        with self.assertRaises(NotDimLike) as cm:
             lx = 5 * l
 
     def test_div(self):
         l = Dim(_length)
         t = Dim(_time)
         lt = l / t
-        self.assertEqual(lt.dim, tuple(a-b for a,b in zip(_length,_time)))
+        self.assertEqual(lt._exp, tuple(a-b for a,b in zip(_length,_time)))
 
-        with self.assertRaises(NotADimObject) as cm:
+        with self.assertRaises(NotDimLike) as cm:
             lx = l / 5
-        with self.assertRaises(NotADimObject) as cm:
+        with self.assertRaises(NotDimLike) as cm:
             lx = 5 / l
 
     def test_pow(self):
         l = Dim(_length) / Dim(_time)
         ll = l**3
-        self.assertEqual(ll.dim,tuple(3*(a-b) for a,b in zip(_length,_time)))
+        self.assertEqual(ll._exp,tuple(3*(a-b) for a,b in zip(_length,_time)))
         ll = l**3.2
-        self.assertEqual(ll.dim,tuple(3.2*(a-b) for a,b in zip(_length,_time)))
+        self.assertEqual(ll._exp,tuple(3.2*(a-b) for a,b in zip(_length,_time)))
 
     def test_derived_dims(self):
         l = Dim(_length)
