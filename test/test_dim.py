@@ -55,6 +55,11 @@ class DimTests(unittest.TestCase):
         x = l/l
         self.assertTrue(x.dimensionless)
 
+    def test_inverse(self):
+        l = Dim(length=1, time=-1)
+        li = l.inverse
+        self.assertEqual(li, Dim(length=-1,time=1))
+
     def test_is_angle(self):
         l = Dim(_length)
         t = Dim(_time)

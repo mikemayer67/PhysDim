@@ -15,16 +15,51 @@ import numpy as np
 
 from .dim import Dim
 from .exceptions import IncompatibleDimensions
+from .exceptions import UnsupportedUfunc
 
 # List of numpy ufuncs was found here:
 #   https://numpy.org/devdocs/reference/ufuncs.html
 
-_TRIG_UFUNC = ('sin','cos','tan')
-_COMPARISON_UFUNC = ('less','less_equal','equal','not_equal','greater','greater_equal')
-_UNARY_UFUNC = ('negative','positive','absolute','invert')
+# ufuncs grouped by functional mapping
+#
+# We don't distinguish on dtype, numpy will handle exceptions on invalid
+#   dtypes passed to the ufunc. We only compare about the physical
+#   dimensionality
+
+#@@@WORK_HERE (pick up with remainder, mod, etc...)
+
+_UFUNC_BY_MAPPING = {
+    # angle to number
+    "A_N" : ('sin','cos','tan',),
+    # unary function returning same dimension as input
+    "X_X" : ('negative','positive','absolute','fabs','invert',),
+    # unary function returning bool
+    "X_B" : ('isfinite',),
+    # pair of same dimension to boolean
+    "XX_B" : ('less','less_equal','equal','not_equal','greater',
+              'greater_equal',),
+    # pair of same dimension to returning same dimension as input
+    "XX_X" : ('add','subtract',),
+    # function multiplies units from input
+    "mul" : ('multiply','matmul',),
+    # function divides units from input
+    "div" : ('divide','true_divide','floor_divide',),
+    # function raise units to a power
+    "pow" : ('power','float_power',),
+    # disallowed ufuncs for PhysDim.Array
+    "fail" : ('logaddexp','logaddexp2',),
+}
+
+def assert_two_inputs(ufunc,args):
+    assert len(args) == 2, (
+        f"{ufunc.__name__} expects 2 inputs, {len(args)} found" )
+    assert ufunc.nin == 2, (
+        f"{ufunc.__name__} expects 2 inputs, but ufunc.nout is {ufunc.nin}" )
+
 
 class Array(np.ndarray):
     __slot__ = ('pdim')
+    _ufunc_io_mapping = None
 
     def __new__(cls, array=None, *, shape=None, pdim, **kwargs):
         if array is not None:
@@ -72,49 +107,80 @@ class Array(np.ndarray):
         if not self.same_pdim(other):
             raise IncompatibleDimensions(self,other)
 
-
-    def _validate_input(self,ufunc,*args):
-        # trig functions can accept dimensionless or angle arguments
-        #   (units will enforce that base unit for angle is radians)
-        fname = ufunc.__name__
-        if fname in _TRIG_UFUNC:
-            if not self.pdim.is_angle:
-                raise TypeError(f"Argument to {fname} must be an angle, not {self.pdim}")
-
-        elif fname in _COMPARISON_UFUNC:
-            for arg in args:
-                if not self.same_pdim(arg):
-                    raise IncompatibleDimensions(self,arg)
-
-        elif fname in _UNARY_UFUNC:
-            pass
-
-        else:
-            print(f"ufunc={ufunc}")
-
-
-
-
-
-    def _output_pdim(self,ufunc,*args):
-        fname = ufunc.__name__
-        
-        if fname in _TRIG_UFUNC or fname in _COMPARISON_UFUNC:
-            return None
-
-        if fname in _UNARY_UFUNC:
-            return self.pdim
-
-        if fname in ('isfinite', 'less_equal'):
-            return None
-
+    def io_map_a_n(self,ufunc,*args):
+        if not self.pdim.is_angle:
+            raise TypeError(f"Argument to {ufunc.__name__} must be an angle, not {self.pdim}")
         return None
 
-    # @@@TODO This is boilerplate from numpy website.
-    #   tailor it to our specific needs
+    def io_map_x_x(self,ufunc,*args):
+        return getattr(self,"pdim",None)
+
+    def io_map_x_b(self,ufunc,*args):
+        return None
+
+    def io_map_xx_b(self,ufunc,*args):
+        for arg in args:
+            if not self.same_pdim(arg):
+                raise IncompatibleDimensions(self,arg)
+        return None
+
+    def io_map_xx_x(self,ufunc,*args):
+        for arg in args:
+            if not self.same_pdim(arg):
+                raise IncompatibleDimensions(self,arg)
+        return self.pdim
+
+    def io_map_mul(self,ufunc,*args):
+        assert_two_inputs(ufunc,args)
+
+        pdim = [getattr(x,'pdim',None) for x in args]
+        if pdim[0] is None:
+            return pdim[1]
+        if pdim[1] is None:
+            return pdim[0]
+        return pdim[0] * pdim[1]
+
+    def io_map_div(self,ufunc,*args):
+        assert_two_inputs(ufunc,args)
+
+        pdim = [getattr(x,'pdim',None) for x in args]
+        if pdim[0] is None:
+            return pdim[1].inverse
+        if pdim[1] is None:
+            return pdim[0]
+        return pdim[0] / pdim[1]
+
+    def io_map_pow(self,ufunc,*args):
+        assert_two_inputs(ufunc,args)
+
+        n = args[1]
+        if n is Array:
+            raise TypeError(" ".join(
+                "Cannot raise a nubmer to a dimensional quantity:",
+                f"{ufunc.__name__} {pdim[1]}"
+            ))
+        if n is np.ndarray and n.size > 1:
+            raise TypeError(" ".join(
+                "Cannot raise a dimensional quantity to anything other than a scalar:"
+                f"{ufunc.__name__} {pdim[1]}"
+            ))
+
+        # having ruled out args[1] as an Array, args[0] must be an Array
+        return args[0].pdim ** n
+
+
+    def io_map_fail(self,ufunc,*args):
+        raise UnsupportedUfunc(ufunc.__name__)
+
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
-        self._validate_input(ufunc,*args)
-        pdim = self._output_pdim(ufunc,args)
+        # validate input and find output physical dimension
+        fname = ufunc.__name__
+        try:
+            io_map = Array._ufunc_io_mapping[fname]
+        except:
+            import pdb; pdb.set_trace()
+            return NotImplemented
+        pdim = io_map(self,ufunc,*args)
 
         in_args = [
             arg.view(np.ndarray) if isinstance(arg,Array) else arg
@@ -154,3 +220,9 @@ class Array(np.ndarray):
 
         # return tuple if multiple outputs
         return results if ufunc.nout > 1 else results[0]
+
+Array._ufunc_io_mapping = {
+    fname: getattr(Array,f"io_map_{mapping.lower()}")
+    for mapping, ufunc_list in _UFUNC_BY_MAPPING.items()
+    for fname in ufunc_list
+}

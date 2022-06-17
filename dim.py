@@ -87,6 +87,9 @@ class Dim(object):
     def is_angle(self):
         return self._exp in ((0,0,0,1,0,0,0),(0,0,0,0,0,0,0))
 
+    @property
+    def inverse(self):
+        return Dim(tuple(-t for t in self._exp))
 
     def __eq__(self,other):
         try:
