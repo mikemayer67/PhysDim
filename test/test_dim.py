@@ -32,6 +32,9 @@ class DimTests(unittest.TestCase):
         v = Dim(v_dim)
         self.assertEqual(v._exp, v_dim)
 
+        v = Dim([1,-1,0,0,0,0,0])
+        self.assertEqual(v._exp, v_dim)
+
     def test_init_copy(self):
         l = Dim(_length)
         x = Dim(l)
@@ -44,7 +47,11 @@ class DimTests(unittest.TestCase):
             v = Dim((1, 2, 0))
         with self.assertRaises(NotDimLike):
             v = Dim((1, 2, 0, 'cat'))
-        with self.assertRaises(TypeError):
+        with self.assertRaisesRegex(TypeError,
+            "^Exponents on dimensions must all be real numbers"):
+            v = Dim((1,2,3,4.0,5+1j,6,7))
+        with self.assertRaisesRegex(TypeError,
+            "^Cannot specify both"):
             v = Dim(_length, length=1)
 
     def test_dimensionless(self):

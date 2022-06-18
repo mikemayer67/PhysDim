@@ -1,6 +1,7 @@
 import unittest
 
 import numpy as np
+import numbers
 
 from PhysDim import Array
 from PhysDim import Dim 
@@ -320,7 +321,6 @@ class ArrayTests(unittest.TestCase):
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim.inverse)
 
-
     def test_ufunc_pow(self):
         shape = (2,3)
         size = np.prod(shape)
@@ -331,9 +331,64 @@ class ArrayTests(unittest.TestCase):
         t = Array((np.arange(size)-3).reshape(shape),pdim=_time)
         t.flat[3] = 100  # avoid div by zero
 
-        for n in (3, 2.5, 1+1j, np.array(3.2), np.array([3.2])):
+        for n in (3, 2.5):
             result = x ** n
-            import pdb; pdb.set_trace()
             self.assertTrue(type(result) is Array)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length**n)
+
+        with self.assertRaisesRegex(TypeError,
+            "^Exponents on dimensions must all be real numbers"):
+            result = x ** (1+1j)
+
+    def test_ufunc_mod(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = Array((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = Array(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        t = Array((np.arange(size)-3).reshape(shape),pdim=_time)
+        t.flat[3] = 100  # avoid div by zero
+
+        n = Array(5,pdim=_length)
+
+        for v in (y,n):
+            result = x % v
+            self.assertTrue(type(result) is Array)
+            self.assertEqual(result.shape, x.shape)
+            self.assertEqual(result.pdim, _length)
+
+        for v in (y,n):
+            result = v % x
+            self.assertTrue(type(result) is Array)
+            self.assertEqual(result.shape, x.shape)
+            self.assertEqual(result.pdim, _length)
+
+        with self.assertRaisesRegex(TypeError,
+            "^Dividend and divisor must have same dimensionality"):
+            result = x % t
+
+    def test_ufunc_divmod(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = Array((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = Array(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        t = Array((np.arange(size)-3).reshape(shape),pdim=_time)
+        t.flat[3] = 100  # avoid div by zero
+
+        n = Array(5,pdim=_length)
+
+        for v in (y,n):
+            q,r = divmod(x,y)
+
+            self.assertTrue(type(q) is np.ndarray)
+            self.assertTrue(type(r) is Array)
+            self.assertEqual(q.shape, x.shape)
+            self.assertEqual(r.shape, x.shape)
+            self.assertEqual(r.pdim, _length)
+
+        with self.assertRaisesRegex(TypeError,
+            "^Dividend and divisor must have same dimensionality"):
+            q,r = divmod(x,t)
+

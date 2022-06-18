@@ -4,7 +4,7 @@ class IncompatibleDimensions(TypeError):
 
 class NotDimLike(TypeError):
     def __init__(self,x):
-        TypeError.__init__(self,f"Expected a Dim object, not {x}")
+        TypeError.__init__(self,f"Expected a 7-tuple or a Dim object, not {x}")
 
 class UnsupportedUfunc(RuntimeError):
     def __init__(self,func_name):

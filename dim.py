@@ -16,6 +16,7 @@ Internally, it stores these exponents as a tuple in the order (L,T,M,A,E,K,I).
 """
 
 import numpy as np
+import numbers
 
 from .exceptions import IncompatibleDimensions
 from .exceptions import NotDimLike
@@ -43,6 +44,7 @@ _DERIVED_DIMS = {
     (-1,-2,1,0,0,0,0):'pressure',
 }
 
+
 class Dim(object):
     __slot__ = ('_exp')
 
@@ -67,17 +69,33 @@ class Dim(object):
             - copy constructor
               - dim (Dim): existing Dim object
         """
-        self._exp = (length,time,mass,angle,charge,temp,illum)
+        arg_exp = (length,time,mass,angle,charge,temp,illum)
         if dim is not None:
-            if hasattr(dim,'_exp'):
-                dim = dim._exp
-            try:
-                t = [int(dim[i]) for i in range(7)]
-            except:
-                raise NotDimLike(dim)
-            if np.any(self._exp):
+            if np.any(arg_exp):
                 raise TypeError("Cannot specify both the dim tuple and individual exponents")
-            self._exp = dim[:7]
+            if type(dim) is Dim:
+                # assume that if dim is already a Dim, we don't need to check the exponent types
+                exp = dim._exp
+            else:
+                # Try to convert it to a tuple and verify that the tuple has 7 entries
+                try:
+                    exp = tuple(dim)
+                    assert len(exp) == 7
+                except:
+                    raise NotDimLike(dim)
+                # Verify that all 7 entries are floating point numbers (and not complex)
+                if not np.all([isinstance(x,numbers.Real) for x in dim]):
+                    raise TypeError(f"Exponents on dimensions must all be real numbers, not {dim}")
+        else:
+            # dim not specified, so we're using the kwargs arguments ( after verifying them )
+            keys = ('length','time','mass','angle','charge','temp','illum')
+            for k,v in zip(keys,arg_exp):
+                if not isinstance(v,numbers.Real):
+                    raise TypeError(f"Exponent on {k} must be a real number, not {v}")
+            exp = arg_exp 
+
+        self._exp = exp
+
 
     @property
     def dimensionless(self):
