@@ -32,14 +32,14 @@ _UFUNC_BY_MAPPING = {
     # angle to number: (A)->(N)
     "A_N" : ('sin','cos','tan',),
     # unary function returning same dimension as input: (X)->(X)
-    "X_X" : ('negative','positive','absolute','fabs','invert',),
-    # unary function returning bool: (X)->(B)
-    "X_B" : ('isfinite',),
+    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate'),
+    # unary function returning number (or bool): (X)->(N)
+    "X_N" : ('sign','heaviside','isfinite',),
     # pair of same dimension to boolean: (X,X)->(B)
     "XX_B" : ('less','less_equal','equal','not_equal','greater',
               'greater_equal',),
     # pair of same dimension to returning same dimension as input: (X,X)->(X)
-    "XX_X" : ('add','subtract',),
+    "XX_X" : ('add','subtract','heaviside'),
     # function multiplies units from input: (X,Y)->(XY)
     "mul" : ('multiply','matmul',),
     # function divides units from input: (X,Y)->(X/Y)
@@ -49,7 +49,8 @@ _UFUNC_BY_MAPPING = {
     # modulus functions: (X,X)->(X) or (X,X)->(N,X)
     "mod" : ('mod','fmod','remainder',),
     # disallowed ufuncs for PhysDim.Array
-    "fail" : ('logaddexp','logaddexp2',),
+    "fail" : ('logaddexp','logaddexp2','rint', 'exp', 'exp2', 
+              'log', 'log2', 'log10', 'expm1','log1p'),
 }
 
 def assert_two_inputs(ufunc,args):
@@ -117,7 +118,7 @@ class Array(np.ndarray):
     def io_map_x_x(self,ufunc,args):
         return getattr(self,"pdim",None)
 
-    def io_map_x_b(self,ufunc,args):
+    def io_map_x_n(self,ufunc,args):
         return None
 
     def io_map_xx_b(self,ufunc,args):
