@@ -355,6 +355,41 @@ class ArrayTests(unittest.TestCase):
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim.inverse)
 
+    def test_ufunc_pow_funcs(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        z = PDA((np.arange(size,dtype=complex)+.5j).reshape(shape),pdim=_length)
+
+        for v in (x,y,z):
+            result = v**2
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, v.shape)
+            self.assertEqual(result.pdim, _length*_length)
+
+            result = np.square(v)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, v.shape)
+            self.assertEqual(result.pdim, _length*_length)
+
+            result = np.sqrt(v)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, v.shape)
+            self.assertEqual(result.pdim, _length**0.5)
+
+            if not v is z:
+                result = np.cbrt(v)
+                self.assertTrue(type(result) is PDA)
+                self.assertEqual(result.shape, v.shape)
+                self.assertEqual(result.pdim, _length**(1/3))
+
+            result = np.reciprocal(v)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, v.shape)
+            self.assertEqual(result.pdim, _length**-1)
+
     def test_ufunc_pow(self):
         shape = (2,3)
         size = np.prod(shape)
@@ -433,7 +468,7 @@ class ArrayTests(unittest.TestCase):
         x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
         y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
 
-        for f in (np.logaddexp,np.logaddexp2,):
+        for f in (np.logaddexp,np.logaddexp2,np.gcd,np.lcm):
             with self.assertRaises(UnsupportedUfunc):
                 result = f(x,y)
 

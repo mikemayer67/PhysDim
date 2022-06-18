@@ -32,7 +32,7 @@ _UFUNC_BY_MAPPING = {
     # angle to number: (A)->(N)
     "A_N" : ('sin','cos','tan',),
     # unary function returning same dimension as input: (X)->(X)
-    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate'),
+    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate',),
     # unary function returning number (or bool): (X)->(N)
     "X_N" : ('sign','heaviside','isfinite',),
     # pair of same dimension to boolean: (X,X)->(B)
@@ -50,14 +50,21 @@ _UFUNC_BY_MAPPING = {
     "mod" : ('mod','fmod','remainder',),
     # disallowed ufuncs for PhysDim.Array
     "fail" : ('logaddexp','logaddexp2','rint', 'exp', 'exp2', 
-              'log', 'log2', 'log10', 'expm1','log1p'),
+              'log', 'log2', 'log10', 'expm1','log1p',
+             'gcd','lcm'),
 }
+
+def assert_one_input(ufunc,args):
+    assert len(args) == 1, (
+        f"{ufunc.__name__} expects 1 input, {len(args)} found" )
+    assert ufunc.nin == 1, (
+        f"{ufunc.__name__} expects 1 input, but ufunc.nin is {ufunc.nin}" )
 
 def assert_two_inputs(ufunc,args):
     assert len(args) == 2, (
         f"{ufunc.__name__} expects 2 inputs, {len(args)} found" )
     assert ufunc.nin == 2, (
-        f"{ufunc.__name__} expects 2 inputs, but ufunc.nout is {ufunc.nin}" )
+        f"{ufunc.__name__} expects 2 inputs, but ufunc.nin is {ufunc.nin}" )
 
 
 class Array(np.ndarray):
@@ -185,6 +192,24 @@ class Array(np.ndarray):
         # only difference between divmod and mod is that former returns two
         # values, the first of which much be dimensionless
         return (None, self.io_map_mod(ufunc,args))
+
+    def io_map_square(self,ufunc,args):
+        assert_one_input(ufunc,args)
+        return self.pdim ** 2
+
+    def io_map_sqrt(self,ufunc,args):
+        assert_one_input(ufunc,args)
+        return self.pdim ** 0.5 
+
+    def io_map_cbrt(self,ufunc,args):
+        print(f"cbrt: {args}")
+        assert_one_input(ufunc,args)
+        return self.pdim ** (1/3)
+
+    def io_map_reciprocal(self,ufunc,args):
+        assert_one_input(ufunc,args)
+        return self.pdim ** -1 
+
 
     def io_map_fail(self,ufunc,args):
         raise UnsupportedUfunc(ufunc.__name__)
