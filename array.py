@@ -31,15 +31,16 @@ from .exceptions import UnsupportedUfunc
 _UFUNC_BY_MAPPING = {
     # angle to number: (A)->(N)
     "A_N" : ('sin','cos','tan',),
+    # number to angle: (N)->(A)
+    "N_A" : ('arcsin','arccos','arctan'),
     # unary function returning same dimension as input: (X)->(X)
     "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate',),
     # unary function returning number (or bool): (X)->(N)
     "X_N" : ('sign','heaviside','isfinite',),
     # pair of same dimension to boolean: (X,X)->(B)
-    "XX_B" : ('less','less_equal','equal','not_equal','greater',
-              'greater_equal',),
+    "XX_B" : ('less','less_equal','equal','not_equal','greater', 'greater_equal',),
     # pair of same dimension to returning same dimension as input: (X,X)->(X)
-    "XX_X" : ('add','subtract','heaviside'),
+    "XX_X" : ('add','subtract','heaviside','hypot'),
     # function multiplies units from input: (X,Y)->(XY)
     "mul" : ('multiply','matmul',),
     # function divides units from input: (X,Y)->(X/Y)
@@ -48,10 +49,16 @@ _UFUNC_BY_MAPPING = {
     "pow" : ('power','float_power',),
     # modulus functions: (X,X)->(X) or (X,X)->(N,X)
     "mod" : ('mod','fmod','remainder',),
-    # disallowed ufuncs for PhysDim.Array
-    "fail" : ('logaddexp','logaddexp2','rint', 'exp', 'exp2', 
-              'log', 'log2', 'log10', 'expm1','log1p',
-             'gcd','lcm'),
+    # functions which require dimensionless input
+    "N_N" : ('logaddexp','logaddexp2','rint', 'exp', 'exp2', 
+             'log', 'log2', 'log10', 'expm1','log1p', 'gcd','lcm',
+             'sinh','cosh','tanh','arcsinh','arccosh','arctanh',
+            ),
+    # unsupported functions
+    "fail" : ('radians','degrees','deg2rad','rad2deg',
+             'bitwise_and', 'bitwise_or', 'bitwise_xor', 'invert',
+             'left_shift','right_shift', 'logical_and', 'logical_or',
+             'logical_xor', 'logical_not',),
 }
 
 def assert_one_input(ufunc,args):
@@ -107,6 +114,14 @@ class Array(np.ndarray):
         pdim = self.pdim.__str__()
         return f"{value} ({pdim})"
 
+    @property
+    def is_angle(self):
+        return self.pdim.is_angle
+
+    @property
+    def is_dimensionless(self):
+        return self.pdim.is_dimensionless
+
     def same_pdim(self,other):
         try:
             return self.pdim == other.pdim
@@ -119,7 +134,31 @@ class Array(np.ndarray):
 
     def io_map_a_n(self,ufunc,args):
         if not self.pdim.is_angle:
-            raise TypeError(f"Argument to {ufunc.__name__} must be an angle, not {self.pdim}")
+            raise TypeError(
+                f"Argument to {ufunc.__name__} must be an angle, not {self.pdim}")
+        return None
+
+    def io_map_n_a(self,ufunc,args):
+        for arg in args:
+            if isinstance(arg,Array) and not arg.is_dimensionless:
+                raise TypeError(" ".join((
+                    f"Argument{'s' if ufunc.nin>1 else ''} to {ufunc.__name__}",
+                    f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
+        return Dim(angle=1)
+
+    def io_map_arctan2(self,ufunc,args):
+        assert_two_inputs(ufunc,args)
+        for arg in args:
+            if not self.same_pdim(arg):
+                raise IncompatibleDimensions(self,arg)
+        return Dim(angle=1)
+
+    def io_map_n_n(self,ufunc,args):
+        for arg in args:
+            if isinstance(arg,Array) and not arg.is_dimensionless:
+                raise TypeError(" ".join((
+                    f"Argument{'s' if ufunc.nin>1 else ''} to {ufunc.__name__}",
+                    f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
         return None
 
     def io_map_x_x(self,ufunc,args):
@@ -210,7 +249,6 @@ class Array(np.ndarray):
         assert_one_input(ufunc,args)
         return self.pdim ** -1 
 
-
     def io_map_fail(self,ufunc,args):
         raise UnsupportedUfunc(ufunc.__name__)
 
@@ -249,7 +287,7 @@ class Array(np.ndarray):
 
         if ufunc.nout == 1:
             # only need to convert output to Array if 
-            if pdim is None or pdim.dimensionless:
+            if pdim is None or pdim.is_dimensionless:
                 return results
 
             if type(out[0]) is Array:
@@ -263,7 +301,7 @@ class Array(np.ndarray):
         else:
             rval = list()
             for r,o,p in zip(results, out, pdim):
-                if p is None or p.dimensionless:
+                if p is None or p.is_dimensionless:
                     rval.append(r)
                 elif type(o) is Array:
                     o.pdim = p

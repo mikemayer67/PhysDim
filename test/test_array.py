@@ -11,6 +11,7 @@ from PhysDim.exceptions import UnsupportedUfunc
 
 _length = Dim(length=1)
 _time = Dim(time=1)
+_density = Dim(mass=1,length=-3)
 _angle = Dim(angle=1)
 _dimless = Dim()
 
@@ -64,9 +65,9 @@ class ArrayTests(unittest.TestCase):
         self.assertEqual(x.pdim, _length)
 
     def test_init_failure(self):
-        with self.assertRaisesRegex(TypeError,"^Cannot initialize.*with both shape and array") as cm:
+        with self.assertRaisesRegex(TypeError,"^Cannot initialize.*with both shape and array"):
             x = PDA([1,2,3],shape=(5,2),pdim=_length)
-        with self.assertRaisesRegex(TypeError,"^The input array must be a simple array") as cm:
+        with self.assertRaisesRegex(TypeError,"^The input array must be a simple array"):
             x = PDA(['cat','dog','pencil'],pdim=_time)
 
     def test_same_pdim(self):
@@ -86,8 +87,12 @@ class ArrayTests(unittest.TestCase):
         size = np.prod(shape)
 
         x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = PDA((np.arange(size)+0.5).reshape(shape),pdim=_length)
+        t = PDA((np.arange(size)+1).reshape(shape),pdim=_time)
         a = PDA(np.arange(size).reshape(shape),pdim=_angle)
-        n = PDA(np.arange(size).reshape(shape),pdim=_dimless)
+        n = PDA((np.arange(size)/(1+size)).reshape(shape),pdim=_dimless)
+
+        s = PDA(np.array(3),pdim=_length)
 
         for f in (np.sin, np.cos, np.tan):
             for v in (a,n):
@@ -99,8 +104,73 @@ class ArrayTests(unittest.TestCase):
                 self.assertTrue(type(result) is np.ndarray)
                 self.assertEqual(result.shape,shape)
 
-            with self.assertRaisesRegex(TypeError, "^Argument to.*must be an angle") as cm:
+            with self.assertRaisesRegex(TypeError, "^Argument to.*must be an angle"):
                 result = f(x)
+
+        for f in (np.arcsin, np.arccos, np.arctan):
+            result = f(n)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, n.shape)
+            self.assertEqual(result.pdim, _angle)
+
+            with self.assertRaisesRegex(TypeError, "^Argument to.*must be dimensionless"):
+                result = f(x)
+
+        for a,b in ((x,y),(x,s),(s,x)):
+            result = np.arctan2(a,b)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, shape)
+            self.assertEqual(result.pdim, _angle)
+
+        result = np.hypot(x,y)
+        self.assertTrue(type(result) is PDA)
+        self.assertEqual(result.shape, shape)
+        self.assertEqual(result.pdim, _length)
+
+        with self.assertRaises(IncompatibleDimensions):
+            result = np.hypot(x,t)
+
+    def test_ufunc_htrig(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        a = PDA((np.arange(size)+2).reshape(shape),pdim=_angle)
+        n = PDA((np.arange(size)/(1+size)).reshape(shape),pdim=_dimless)
+
+        s = PDA(np.array(3),pdim=_length)
+
+        for f in (np.sinh, np.cosh, np.tanh, np.arcsinh, np.arctanh):
+            result = f(n)
+            self.assertTrue(type(result) is np.ndarray)
+            self.assertEqual(result.shape,shape)
+
+            for v in (x,a):
+                with self.assertRaisesRegex(TypeError, "^Argument to.*must be dimensionless"):
+                    result = f(v)
+
+        n[:] += PDA(2,pdim=_dimless)
+        result = np.arccosh(n)
+        self.assertTrue(type(result) is np.ndarray)
+        self.assertEqual(result.shape,shape)
+
+        for v in (x,a):
+            with self.assertRaisesRegex(TypeError, "^Argument to.*must be dimensionless"):
+                result = np.arccosh(v)
+
+    def test_angle_conv_fail(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        a = PDA((np.arange(size)+2).reshape(shape),pdim=_angle)
+        n = PDA((np.arange(size)/(1+size)).reshape(shape),pdim=_dimless)
+
+        for f in (np.degrees, np.radians, np.deg2rad, np.rad2deg):
+            for v in (x,a,n):
+                with self.assertRaises(UnsupportedUfunc):
+                    result = f(v)
+
 
     def test_ufunc_compare(self):
         shape = (2,3)
@@ -123,7 +193,7 @@ class ArrayTests(unittest.TestCase):
                 self.assertEqual(result.dtype, bool)
                 self.assertEqual(result.shape, shape)
 
-            with self.assertRaises(IncompatibleDimensions) as cm:
+            with self.assertRaises(IncompatibleDimensions):
                 result = f(x,t)
 
     def test_ufunc_unary_op(self):
@@ -143,8 +213,7 @@ class ArrayTests(unittest.TestCase):
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
-        for f in (np.negative, np.positive, np.absolute, np.invert,
-                 np.conj, np.conjugate):
+        for f in (np.negative, np.positive, np.absolute, np.conj, np.conjugate):
             for v in (x,y,z,t,a,n):
                 if f is np.invert:
                     if v is z: continue
@@ -203,7 +272,7 @@ class ArrayTests(unittest.TestCase):
                 self.assertEqual(result.dtype, v.dtype)
                 self.assertEqual(result.pdim, v.pdim)
 
-            with self.assertRaises(IncompatibleDimensions) as cm:
+            with self.assertRaises(IncompatibleDimensions):
                 result = f(x,t)
 
         result = np.heaviside(x,y)
@@ -461,19 +530,96 @@ class ArrayTests(unittest.TestCase):
             "^Dividend and divisor must have same dimensionality"):
             q,r = divmod(x,t)
 
-    def test_ufunc_unallowed(self):
+    def test_ufunc_dimensionless_unary(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        n = PDA((np.arange(size)+1).reshape(shape),pdim=Dim())
+
+        for f in (np.rint, np.exp, np.exp2, np.log, np.log2, 
+                  np.log10, np.expm1, np.log1p):
+
+            result = f(n)
+            self.assertTrue(type(result) is np.ndarray)
+            self.assertEqual(result.shape, n.shape)
+
+            with self.assertRaisesRegex(TypeError,"^Argument to.*must be dimensionless"):
+                result = f(x)
+
+    def test_ufunc_dimensionless_op(self):
         shape = (2,3)
         size = np.prod(shape)
 
         x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
         y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        n = PDA((np.arange(size)+1).reshape(shape),pdim=Dim())
+        m = PDA((np.arange(size)+1).reshape(shape),pdim=Dim())
 
         for f in (np.logaddexp,np.logaddexp2,np.gcd,np.lcm):
-            with self.assertRaises(UnsupportedUfunc):
+            result = f(n,m)
+            self.assertTrue(type(result) is np.ndarray)
+            self.assertEqual(result.shape, n.shape)
+
+            with self.assertRaisesRegex(TypeError,"^Arguments to.*must be dimensionless"):
                 result = f(x,y)
 
-        for f in (np.rint, np.exp, np.exp2, np.log, np.log2, 
-                  np.log10, np.expm1, np.log1p):
+            with self.assertRaisesRegex(TypeError,"^Arguments to.*must be dimensionless"):
+                result = f(x,n)
+
+    def test_ufunc_bitwise(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        n = (np.arange(size)+2).reshape(shape)
+        s = 5
+
+        for v in (y,n,s):
             with self.assertRaises(UnsupportedUfunc):
-                result = f(x)
+                result = x & v
+            with self.assertRaises(UnsupportedUfunc):
+                result = x | v
+            with self.assertRaises(UnsupportedUfunc):
+                result = x ^ v
+            with self.assertRaises(UnsupportedUfunc):
+                result = x << v
+            with self.assertRaises(UnsupportedUfunc):
+                result = x >> v
+
+            with self.assertRaises(UnsupportedUfunc):
+                result = v & x
+            with self.assertRaises(UnsupportedUfunc):
+                result = v | x
+            with self.assertRaises(UnsupportedUfunc):
+                result = v ^ x
+            with self.assertRaises(UnsupportedUfunc):
+                result = v << x
+            with self.assertRaises(UnsupportedUfunc):
+                result = v >> x
+
+        with self.assertRaises(UnsupportedUfunc):
+            result = ~x
+
+
+    def test_ufunc_logical(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        n = (np.arange(size)+2).reshape(shape)
+        s = 5
+
+        for f in (np.logical_and, np.logical_or, np.logical_xor):
+            for v in (y,n,s):
+                with self.assertRaises(UnsupportedUfunc):
+                    result = f(x,v)
+                with self.assertRaises(UnsupportedUfunc):
+                    result = f(v,x)
+
+        with self.assertRaises(UnsupportedUfunc):
+            result = np.logical_not(x)
+
 

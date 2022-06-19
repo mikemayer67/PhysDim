@@ -56,11 +56,11 @@ class DimTests(unittest.TestCase):
 
     def test_dimensionless(self):
         l = Dim(_length)
-        self.assertFalse(l.dimensionless)
+        self.assertFalse(l.is_dimensionless)
         x = Dim()
-        self.assertTrue(x.dimensionless)
+        self.assertTrue(x.is_dimensionless)
         x = l/l
-        self.assertTrue(x.dimensionless)
+        self.assertTrue(x.is_dimensionless)
 
     def test_inverse(self):
         l = Dim(length=1, time=-1)

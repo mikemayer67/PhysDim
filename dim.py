@@ -98,7 +98,7 @@ class Dim(object):
 
 
     @property
-    def dimensionless(self):
+    def is_dimensionless(self):
         return not np.any(self._exp)
 
     @property
