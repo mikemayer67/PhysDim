@@ -13,6 +13,7 @@ pdim attribute (which is an instance of PhysDim.Dim)
 
 import numpy as np
 
+from . import _afunc
 from . import _ufunc
 
 class Array(np.ndarray):
@@ -66,6 +67,20 @@ class Array(np.ndarray):
         import pdb; pdb.set_trace()
         return super().fmin(*args,**kwargs)
 
+    def __array_function__(self, func, types, *args, **kwargs):
+        print(f"{func}: {type} {args} {kwargs}")
+        import pdb; pdb.set_trace()
+
+        io_map = _afunc.io_map(func,self,args)
+
+        if io_map is not None:
+            pdim = io_map(func,self,args)
+
+        results = super().__array_function__(func,types,*args,**kwargs)
+
+        return results
+
+
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
         print(f"{ufunc}:: {args}")
 
@@ -102,7 +117,6 @@ class Array(np.ndarray):
                 self._convert_result(r,p,out=o)
                 for r,p,o in zip(results, pdim, out)
                 )
-
 
     def _convert_result(self, result, pdim, *, out=None): 
         if type(out) is Array:

@@ -540,13 +540,13 @@ class UfuncTests(unittest.TestCase):
             result = np.logical_not(x)
 
 
-#    def test_ufunc_minmax(self):
-#        (x,y,z,n) = (self.x, self.y, self.z, self.n)
-#        s = 5
-#        
-#        for f in (np.min, np.max, np.minimum, np.maximum):
-#            for v in (x,y):
-#                result = f(x,v)
-#                self.assertTrue(type(result) is PDA)
-#                self.assertEqual(result.shape, x.shape)
-#                self.assertEqual(result.pdim, _length)
+    def test_ufunc_minmax(self):
+        (x,y,z,n) = (self.x, self.y, self.z, self.n)
+        s = 5
+        
+        for f in (np.min, np.max, np.minimum, np.maximum):
+            for v in (x,y):
+                result = f(x,v)
+                self.assertTrue(type(result) is PDA)
+                self.assertEqual(result.shape, x.shape)
+                self.assertEqual(result.pdim, _length)

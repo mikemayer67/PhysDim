@@ -9,6 +9,10 @@ physical dimensionality.
 
 import numpy as np
 
+from ._funcs import output_pdim
+from ._funcs import same_pdim
+from ._funcs import assert_same_pdim
+
 from .exceptions import IncompatibleDimensions
 from .exceptions import UnsupportedUfunc
 from .dim import Dim
@@ -63,18 +67,6 @@ io_mapping = {
     for fname in ufunc_list
 }
 
-# Convenience functions for testing for same dimensionality 
-
-def same_pdim(a,b):
-    try:
-        return a.pdim == b.pdim
-    except:
-        return False
-
-def assert_same_pdim(a,b):
-    if not same_pdim(a,b):
-        raise IncompatibleDimensions(a,b)
-
 # Convenience functions for testing input counts
 
 def assert_one_input(ufunc,args):
@@ -91,10 +83,6 @@ def assert_two_inputs(ufunc,args):
 
 # Functions for validating ufunc inputs involviing a PhysDim.Array input
 #   and returning the appropriate physical dimensionality of each output
-
-def output_pdim(pdim):
-    return None if pdim.is_dimensionless else pdim
-
 
 def io_map_a_n(ufunc,obj,args):
     if not obj.pdim.is_angle:
