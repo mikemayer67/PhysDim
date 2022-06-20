@@ -66,64 +66,54 @@ class Array(np.ndarray):
         import pdb; pdb.set_trace()
         return super().fmin(*args,**kwargs)
 
-
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
         print(f"{ufunc}:: {args}")
-        # validate input and find output physical dimension
 
-        fname = ufunc.__name__
-        io_map_name = _ufunc.io_mapping.get(fname,f"io_map_{fname}")
-        io_map = getattr(_ufunc,io_map_name,None)
-        if io_map is None:
-            import pdb; pdb.set_trace()
-            return NotImplemented
+        pdim = _ufunc.io_map(ufunc,self,args)
 
-        pdim = io_map(self,ufunc,args)
-
-        in_args = [
+        # down-convert any Array inputs to numpy.ndarray 
+        in_args = [ 
             arg.view(np.ndarray) if isinstance(arg,Array) else arg
             for arg in args
             ]
 
+        # down-convert any user specified Array outputs to numpy.ndarray
         if out is not None:
-            out_args = tuple(
-                arg.view(np.ndarray) if isinstance(arg,Array) else arg
-                for arg in out
+            kwargs['out'] = tuple(
+                o.view(np.ndarray) if isinstance(o,Array) else o
+                for o in out 
                 )
-            kwargs['out'] = tuple(out_args)
-        else:
-            out = (None,) * ufunc.nout
 
+        # invoke the ufunc without Array arguments
         results = super().__array_ufunc__(ufunc, method, *in_args, **kwargs)
         if results is NotImplemented:
             return NotImplemented
 
-        # multiple outputs require special handling...
-
-        if ufunc.nout == 1:
-            # only need to convert output to Array if 
-            if pdim is None or pdim.is_dimensionless:
-                return results
-
-            if type(out[0]) is Array:
-                results = out[0]
-            else:
-                results = np.array(results).view(Array)
-
-            results.pdim = pdim
+        # If (all) pdim is dimensionless no convertion necessary
+        if pdim is None:
             return results
 
+        if ufunc.nout == 1:
+            return self._convert_result(results, pdim, out=out)
         else:
-            rval = list()
-            for r,o,p in zip(results, out, pdim):
-                if p is None or p.is_dimensionless:
-                    rval.append(r)
-                elif type(o) is Array:
-                    o.pdim = p
-                    rval.append(o)
-                else:
-                    r = np.array(r).view(Array)
-                    r.pdim = p
-                    rval.append(r)
+            if out is None:
+                out = (None,)*ufunc.nout
+            return tuple(
+                self._convert_result(r,p,out=o)
+                for r,p,o in zip(results, pdim, out)
+                )
 
-            return tuple(rval)
+
+    def _convert_result(self, result, pdim, *, out=None): 
+        if type(out) is Array:
+            if pdim:
+                out.pdim = pdim
+                return out
+            else:
+                return out.view(np.ndarray)
+        elif pdim:
+            r = result.view(Array)
+            r.pdim = pdim
+            return r
+        else:
+            return result

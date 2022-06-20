@@ -92,13 +92,17 @@ def assert_two_inputs(ufunc,args):
 # Functions for validating ufunc inputs involviing a PhysDim.Array input
 #   and returning the appropriate physical dimensionality of each output
 
-def io_map_a_n(obj,ufunc,args):
+def output_pdim(pdim):
+    return None if pdim.is_dimensionless else pdim
+
+
+def io_map_a_n(ufunc,obj,args):
     if not obj.pdim.is_angle:
         raise TypeError(
             f"Argument to {ufunc.__name__} must be an angle, not {obj.pdim}")
     return None
 
-def io_map_n_a(obj,ufunc,args):
+def io_map_n_a(ufunc,obj,args):
     for arg in args:
         if isinstance(arg,type(obj)) and not arg.is_dimensionless:
             raise TypeError(" ".join((
@@ -106,14 +110,14 @@ def io_map_n_a(obj,ufunc,args):
                 f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
     return Dim(angle=1)
 
-def io_map_arctan2(obj,ufunc,args):
+def io_map_arctan2(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
     for arg in args:
         if not same_pdim(obj,arg):
             raise IncompatibleDimensions(obj,arg)
     return Dim(angle=1)
 
-def io_map_n_n(obj,ufunc,args):
+def io_map_n_n(ufunc,obj,args):
     for arg in args:
         if isinstance(arg,type(obj)) and not arg.is_dimensionless:
             raise TypeError(" ".join((
@@ -121,45 +125,45 @@ def io_map_n_n(obj,ufunc,args):
                 f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
     return None
 
-def io_map_x_x(obj,ufunc,args):
-    return getattr(obj,"pdim",None)
+def io_map_x_x(ufunc,obj,args):
+    return output_pdim(obj.pdim)
 
-def io_map_x_n(obj,ufunc,args):
+def io_map_x_n(ufunc,obj,args):
     return None
 
-def io_map_xx_b(obj,ufunc,args):
+def io_map_xx_b(ufunc,obj,args):
     for arg in args:
         if not same_pdim(obj,arg):
             raise IncompatibleDimensions(obj,arg)
     return None
 
-def io_map_xx_x(obj,ufunc,args):
+def io_map_xx_x(ufunc,obj,args):
     for arg in args:
         if not same_pdim(obj,arg):
             raise IncompatibleDimensions(obj,arg)
-    return obj.pdim
+    return output_pdim(obj.pdim)
 
-def io_map_mul(obj,ufunc,args):
+def io_map_mul(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
 
     pdim = [getattr(x,'pdim',None) for x in args]
     if pdim[0] is None:
-        return pdim[1]
+        return output_pdim(pdim[1])
     if pdim[1] is None:
-        return pdim[0]
-    return pdim[0] * pdim[1]
+        return output_pdim(pdim[0])
+    return output_pdim(pdim[0] * pdim[1])
 
-def io_map_div(obj,ufunc,args):
+def io_map_div(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
 
     pdim = [getattr(x,'pdim',None) for x in args]
     if pdim[0] is None:
-        return pdim[1].inverse
+        return output_pdim(pdim[1].inverse)
     if pdim[1] is None:
-        return pdim[0]
-    return pdim[0] / pdim[1]
+        return output_pdim(pdim[0])
+    return output_pdim(pdim[0] / pdim[1])
 
-def io_map_pow(obj,ufunc,args):
+def io_map_pow(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
 
     n = args[1]
@@ -173,9 +177,9 @@ def io_map_pow(obj,ufunc,args):
             f"{ufunc.__name__} {pdim[1]}")))
 
     # having ruled out args[1] as an Array, args[0] must be an Array
-    return args[0].pdim ** n
+    return output_pdim(args[0].pdim ** n)
 
-def io_map_mod(obj,ufunc,args):
+def io_map_mod(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
     if type(args[0]) is not type(obj):
         raise TypeError(f"Dividend must be a {type(obj)}, not {args[0]}")
@@ -185,30 +189,41 @@ def io_map_mod(obj,ufunc,args):
         raise TypeError(" ".join((
             "Dividend and divisor must have same dimensionality:",
             f"{args[0].pdim} is not the same as {args[1].pdim}")))
-    return obj.pdim
+    return output_pdim(obj.pdim)
 
-def io_map_divmod(obj,ufunc,args):
+def io_map_divmod(ufunc,obj,args):
     # only difference between divmod and mod is that former returns two
     # values, the first of which much be dimensionless
-    return (None, io_map_mod(obj,ufunc,args))
+    pdim = io_map_mod(ufunc,obj,args)
+    return None if pdim is None else (None, pdim)
 
-def io_map_square(obj,ufunc,args):
+def io_map_square(ufunc,obj,args):
     assert_one_input(ufunc,args)
-    return obj.pdim ** 2
+    return output_pdim(obj.pdim ** 2)
 
-def io_map_sqrt(obj,ufunc,args):
+def io_map_sqrt(ufunc,obj,args):
     assert_one_input(ufunc,args)
-    return obj.pdim ** 0.5 
+    return output_pdim(obj.pdim ** 0.5)
 
-def io_map_cbrt(obj,ufunc,args):
+def io_map_cbrt(ufunc,obj,args):
     print(f"cbrt: {args}")
     assert_one_input(ufunc,args)
-    return obj.pdim ** (1/3)
+    return output_pdim(obj.pdim ** (1/3))
 
-def io_map_reciprocal(obj,ufunc,args):
+def io_map_reciprocal(ufunc,obj,args):
     assert_one_input(ufunc,args)
-    return obj.pdim ** -1 
+    return output_pdim(obj.pdim ** -1)
 
-def io_map_fail(obj,ufunc,args):
+def io_map_fail(ufunc,obj,args):
     raise UnsupportedUfunc(ufunc.__name__)
 
+
+def io_map(ufunc,obj,args):
+    fname = ufunc.__name__
+    io_map_name = io_mapping.get(fname,f"io_map_{fname}")
+    io_map_func = globals().get(io_map_name,None)
+    if io_map_func is None:
+        import pdb; pdb.set_trace()
+        return NotImplemented
+
+    return io_map_func(ufunc,obj,args)

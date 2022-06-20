@@ -415,6 +415,9 @@ class UfuncTests(unittest.TestCase):
 
         n = PDA(5,pdim=_length)
 
+        qo = PDA(np.zeros(x.shape),pdim=_dimless)
+        ro = PDA(np.zeros(x.shape),pdim=_dimless)
+
         for v in (y,n):
             q,r = divmod(x,v)
 
@@ -423,6 +426,39 @@ class UfuncTests(unittest.TestCase):
             self.assertEqual(q.shape, x.shape)
             self.assertEqual(r.shape, x.shape)
             self.assertEqual(r.pdim, _length)
+
+            q,r = np.divmod(x,v,out=(qo,ro))
+            self.assertTrue(type(q) is np.ndarray)
+            self.assertTrue(type(r) is PDA)
+            self.assertTrue(type(qo) is PDA)
+            self.assertTrue(type(ro) is PDA)
+            self.assertEqual(q.shape, x.shape)
+            self.assertEqual(r.shape, x.shape)
+            self.assertEqual(r.pdim, _length)
+            self.assertEqual(qo.shape, x.shape)
+            self.assertEqual(ro.shape, x.shape)
+            self.assertEqual(ro.pdim, _length)
+
+            q,r = np.divmod(x,v,out=(qo,None))
+            self.assertTrue(type(q) is np.ndarray)
+            self.assertTrue(type(r) is PDA)
+            self.assertTrue(type(qo) is PDA)
+            self.assertEqual(q.shape, x.shape)
+            self.assertEqual(r.shape, x.shape)
+            self.assertEqual(r.pdim, _length)
+            self.assertEqual(qo.shape, x.shape)
+
+            q,r = np.divmod(x,v,out=(None,ro))
+            self.assertTrue(type(q) is np.ndarray)
+            self.assertTrue(type(r) is PDA)
+            self.assertTrue(type(ro) is PDA)
+            self.assertEqual(q.shape, x.shape)
+            self.assertEqual(r.shape, x.shape)
+            self.assertEqual(r.pdim, _length)
+            self.assertEqual(ro.shape, x.shape)
+            self.assertEqual(ro.pdim, _length)
+
+
 
         with self.assertRaisesRegex(TypeError,
             "^Dividend and divisor must have same dimensionality"):
