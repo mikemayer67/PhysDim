@@ -1,0 +1,214 @@
+"""Universal Function (ufunc) support to PhysDim.Array
+
+In order to keep the efficiency provided by numpy's ufuncs, we need
+to cast any PhysDim.Array object passed as input to a ufunc into 
+a numpy.ndarray.  For most (but not all) ufunc, we will also want
+to cast the returned numpy.ndarray to a PhySim.Array with appropriate
+physical dimensionality.
+"""
+
+import numpy as np
+
+from .exceptions import IncompatibleDimensions
+from .exceptions import UnsupportedUfunc
+from .dim import Dim
+
+# List of numpy ufuncs was found here:
+#   https://numpy.org/devdocs/reference/ufuncs.html
+
+# ufuncs grouped by functional mapping
+#
+# We don't distinguish on dtype, numpy will handle exceptions on invalid
+#   dtypes passed to the ufunc. We only compare about the physical
+#   dimensionality
+
+#@@@WORK_HERE (pick up with remainder, mod, etc...)
+
+_UFUNC_MAPPING = {
+    # angle to number: (A)->(N)
+    "A_N" : ('sin','cos','tan',),
+    # number to angle: (N)->(A)
+    "N_A" : ('arcsin','arccos','arctan'),
+    # unary function returning same dimension as input: (X)->(X)
+    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate',),
+    # unary function returning number (or bool): (X)->(N)
+    "X_N" : ('sign','heaviside','isfinite',),
+    # pair of same dimension to boolean: (X,X)->(B)
+    "XX_B" : ('less','less_equal','equal','not_equal','greater', 'greater_equal',),
+    # pair of same dimension to returning same dimension as input: (X,X)->(X)
+    "XX_X" : ('add','subtract','heaviside','hypot',
+              'maximum','fmax','minimum','fmin',),
+    # function multiplies units from input: (X,Y)->(XY)
+    "mul" : ('multiply','matmul',),
+    # function divides units from input: (X,Y)->(X/Y)
+    "div" : ('divide','true_divide','floor_divide',),
+    # function raise units to a power: (X,N)->(X**N)
+    "pow" : ('power','float_power',),
+    # modulus functions: (X,X)->(X) or (X,X)->(N,X)
+    "mod" : ('mod','fmod','remainder',),
+    # functions which require dimensionless input
+    "N_N" : ('logaddexp','logaddexp2','rint', 'exp', 'exp2', 
+             'log', 'log2', 'log10', 'expm1','log1p', 'gcd','lcm',
+             'sinh','cosh','tanh','arcsinh','arccosh','arctanh',),
+    # unsupported functions
+    "fail" : ('radians','degrees','deg2rad','rad2deg',
+             'bitwise_and', 'bitwise_or', 'bitwise_xor', 'invert',
+             'left_shift','right_shift', 'logical_and', 'logical_or',
+             'logical_xor', 'logical_not',),
+}
+
+io_mapping = {
+    fname: f"io_map_{mapping.lower()}"
+    for mapping, ufunc_list in _UFUNC_MAPPING.items()
+    for fname in ufunc_list
+}
+
+# Convenience functions for testing for same dimensionality 
+
+def same_pdim(a,b):
+    try:
+        return a.pdim == b.pdim
+    except:
+        return False
+
+def assert_same_pdim(a,b):
+    if not same_pdim(a,b):
+        raise IncompatibleDimensions(a,b)
+
+# Convenience functions for testing input counts
+
+def assert_one_input(ufunc,args):
+    assert len(args) == 1, (
+        f"{ufunc.__name__} expects 1 input, {len(args)} found" )
+    assert ufunc.nin == 1, (
+        f"{ufunc.__name__} expects 1 input, but ufunc.nin is {ufunc.nin}" )
+
+def assert_two_inputs(ufunc,args):
+    assert len(args) == 2, (
+        f"{ufunc.__name__} expects 2 inputs, {len(args)} found" )
+    assert ufunc.nin == 2, (
+        f"{ufunc.__name__} expects 2 inputs, but ufunc.nin is {ufunc.nin}" )
+
+# Functions for validating ufunc inputs involviing a PhysDim.Array input
+#   and returning the appropriate physical dimensionality of each output
+
+def io_map_a_n(obj,ufunc,args):
+    if not obj.pdim.is_angle:
+        raise TypeError(
+            f"Argument to {ufunc.__name__} must be an angle, not {obj.pdim}")
+    return None
+
+def io_map_n_a(obj,ufunc,args):
+    for arg in args:
+        if isinstance(arg,type(obj)) and not arg.is_dimensionless:
+            raise TypeError(" ".join((
+                f"Argument{'s' if ufunc.nin>1 else ''} to {ufunc.__name__}",
+                f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
+    return Dim(angle=1)
+
+def io_map_arctan2(obj,ufunc,args):
+    assert_two_inputs(ufunc,args)
+    for arg in args:
+        if not same_pdim(obj,arg):
+            raise IncompatibleDimensions(obj,arg)
+    return Dim(angle=1)
+
+def io_map_n_n(obj,ufunc,args):
+    for arg in args:
+        if isinstance(arg,type(obj)) and not arg.is_dimensionless:
+            raise TypeError(" ".join((
+                f"Argument{'s' if ufunc.nin>1 else ''} to {ufunc.__name__}",
+                f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
+    return None
+
+def io_map_x_x(obj,ufunc,args):
+    return getattr(obj,"pdim",None)
+
+def io_map_x_n(obj,ufunc,args):
+    return None
+
+def io_map_xx_b(obj,ufunc,args):
+    for arg in args:
+        if not same_pdim(obj,arg):
+            raise IncompatibleDimensions(obj,arg)
+    return None
+
+def io_map_xx_x(obj,ufunc,args):
+    for arg in args:
+        if not same_pdim(obj,arg):
+            raise IncompatibleDimensions(obj,arg)
+    return obj.pdim
+
+def io_map_mul(obj,ufunc,args):
+    assert_two_inputs(ufunc,args)
+
+    pdim = [getattr(x,'pdim',None) for x in args]
+    if pdim[0] is None:
+        return pdim[1]
+    if pdim[1] is None:
+        return pdim[0]
+    return pdim[0] * pdim[1]
+
+def io_map_div(obj,ufunc,args):
+    assert_two_inputs(ufunc,args)
+
+    pdim = [getattr(x,'pdim',None) for x in args]
+    if pdim[0] is None:
+        return pdim[1].inverse
+    if pdim[1] is None:
+        return pdim[0]
+    return pdim[0] / pdim[1]
+
+def io_map_pow(obj,ufunc,args):
+    assert_two_inputs(ufunc,args)
+
+    n = args[1]
+    if n is type(obj):
+        raise TypeError(" ".join((
+            "Cannot raise a nubmer to a dimensional quantity:",
+            f"{ufunc.__name__} {pdim[1]}")))
+    if n is np.ndarray and n.size > 1:
+        raise TypeError(" ".join((
+            "Cannot raise a dimensional quantity to anything other than a scalar:"
+            f"{ufunc.__name__} {pdim[1]}")))
+
+    # having ruled out args[1] as an Array, args[0] must be an Array
+    return args[0].pdim ** n
+
+def io_map_mod(obj,ufunc,args):
+    assert_two_inputs(ufunc,args)
+    if type(args[0]) is not type(obj):
+        raise TypeError(f"Dividend must be a {type(obj)}, not {args[0]}")
+    if type(args[1]) is not type(obj):
+        raise TypeError(f"Divisor must be a {type(obj)}, not {args[1]}")
+    if args[0].pdim != args[1].pdim:
+        raise TypeError(" ".join((
+            "Dividend and divisor must have same dimensionality:",
+            f"{args[0].pdim} is not the same as {args[1].pdim}")))
+    return obj.pdim
+
+def io_map_divmod(obj,ufunc,args):
+    # only difference between divmod and mod is that former returns two
+    # values, the first of which much be dimensionless
+    return (None, io_map_mod(obj,ufunc,args))
+
+def io_map_square(obj,ufunc,args):
+    assert_one_input(ufunc,args)
+    return obj.pdim ** 2
+
+def io_map_sqrt(obj,ufunc,args):
+    assert_one_input(ufunc,args)
+    return obj.pdim ** 0.5 
+
+def io_map_cbrt(obj,ufunc,args):
+    print(f"cbrt: {args}")
+    assert_one_input(ufunc,args)
+    return obj.pdim ** (1/3)
+
+def io_map_reciprocal(obj,ufunc,args):
+    assert_one_input(ufunc,args)
+    return obj.pdim ** -1 
+
+def io_map_fail(obj,ufunc,args):
+    raise UnsupportedUfunc(ufunc.__name__)
+
