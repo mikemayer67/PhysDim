@@ -40,7 +40,8 @@ _UFUNC_BY_MAPPING = {
     # pair of same dimension to boolean: (X,X)->(B)
     "XX_B" : ('less','less_equal','equal','not_equal','greater', 'greater_equal',),
     # pair of same dimension to returning same dimension as input: (X,X)->(X)
-    "XX_X" : ('add','subtract','heaviside','hypot'),
+    "XX_X" : ('add','subtract','heaviside','hypot',
+              'maximum','fmax','minimum','fmin',),
     # function multiplies units from input: (X,Y)->(XY)
     "mul" : ('multiply','matmul',),
     # function divides units from input: (X,Y)->(X/Y)
@@ -252,7 +253,15 @@ class Array(np.ndarray):
     def io_map_fail(self,ufunc,args):
         raise UnsupportedUfunc(ufunc.__name__)
 
+    def fmin(*args,**kwargs):
+        import pdb; pdb.set_trace()
+        return super().fmin(*args,**kwargs)
+
+
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
+        print(f"{ufunc}:: {args}")
+        if ufunc.__name__ == "minimum":
+            import pdb; pdb.set_trace()
         # validate input and find output physical dimension
 
         fname = ufunc.__name__

@@ -623,3 +623,19 @@ class ArrayTests(unittest.TestCase):
             result = np.logical_not(x)
 
 
+    def test_ufunc_minmax(self):
+        shape = (2,3)
+        size = np.prod(shape)
+
+        x = PDA((np.arange(size)+1).reshape(shape),pdim=_length)
+        y = PDA(np.transpose(np.arange(size)+0.5).reshape(shape),pdim=_length)
+        z = PDA(np.transpose(np.arange(size)+1).reshape(shape),pdim=_density)
+        n = (np.arange(size)+2).reshape(shape)
+        s = 5
+        
+        for f in (np.min, np.max, np.minimum, np.maximum):
+            for v in (x,y):
+                result = f(x,v)
+                self.assertTrue(type(result) is PDA)
+                self.assertEqual(result.shape, x.shape)
+                self.assertEqual(result.pdim, _length)
