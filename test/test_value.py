@@ -3,8 +3,8 @@ import warnings
 
 import numpy as np
 
-from PhysDim import Array as PDA
-from PhysDim import Dim 
+from physdim import PhysicalValue as PV
+from physdim import PhysicalDimension as Dim 
 
 _length = Dim(length=1)
 _time = Dim(time=1)
@@ -15,44 +15,44 @@ _dimless = Dim()
 def is_close(a,b):
     return np.allclose(a.view(np.ndarray), b.view(np.ndarray))
 
-class ArrayTests(unittest.TestCase):
+class PhysicalValueTests(unittest.TestCase):
 
     def test_init_unit(self):
-        x = PDA()
+        x = PV()
         self.assertEqual(x.size, 1)
         self.assertTrue(x.flat[0], 1)
         self.assertEqual(x.pdim, _dimless)
 
-        x = PDA(_length)
+        x = PV(_length)
         self.assertEqual(x.size, 1)
         self.assertTrue(x.flat[0], 1)
         self.assertEqual(x.pdim, _length)
 
         for n in (1, 2.5, 3+4j):
-            x = PDA(n)
+            x = PV(n)
             self.assertEqual(x.size, 1)
             self.assertTrue(x.flat[0], n)
             self.assertEqual(x.pdim, _dimless)
 
         for n in (1, 2.5, 3+4j):
             for pdim in (_dimless, _length):
-                x = PDA(n,pdim)
+                x = PV(n,pdim)
                 self.assertEqual(x.size, 1)
                 self.assertTrue(x.flat[0], n)
                 self.assertEqual(x.pdim, pdim)
 
-        with self.assertRaisesRegex(TypeError,"^Cannot create Array of"):
-            x = PDA('cow')
+        with self.assertRaisesRegex(TypeError,"^Cannot create PhysicalValue for"):
+            x = PV('cow')
 
     def test_init_pdim(self):
-        x = PDA(_length)
-        y = PDA(pdim=_length)
+        x = PV(_length)
+        y = PV(pdim=_length)
         self.assertEqual(x.pdim,y.pdim)
 
         for n in (1, 2.5, 3+4j):
             for pdim in (_dimless, _length):
-                x = PDA(n,pdim)
-                y = PDA(n,pdim=pdim)
+                x = PV(n,pdim)
+                y = PV(n,pdim=pdim)
                 self.assertEqual(x.pdim,y.pdim)
 
         good_cases = ([1,2,8,9], [8.2, -5.2], [1+2j],
@@ -60,13 +60,13 @@ class ArrayTests(unittest.TestCase):
             )
 
         for v in ([1,2,8,9],[1+2j],[[1,2],[4,3]]):
-            x = PDA(v,_density)
-            y = PDA(v, pdim=_density)
+            x = PV(v,_density)
+            y = PV(v, pdim=_density)
             self.assertEqual(x.pdim,y.pdim)
 
             nv = np.array(v)
-            x = PDA(nv,_density)
-            y = PDA(nv, pdim=_density)
+            x = PV(nv,_density)
+            y = PV(nv, pdim=_density)
             self.assertEqual(x.pdim,y.pdim)
 
     def test_init_values(self):
@@ -76,37 +76,37 @@ class ArrayTests(unittest.TestCase):
 
         for v in good_cases:
             nv = np.array(v)
-            x = PDA(v)
+            x = PV(v)
             self.assertEqual(x.shape, nv.shape)
             self.assertEqual(x.dtype, nv.dtype)
             self.assertEqual(x.pdim, _dimless)
 
             for pdim in (_dimless, _density):
                 nv = np.array(v)
-                x = PDA(v,pdim)
+                x = PV(v,pdim)
                 self.assertEqual(x.shape, nv.shape)
                 self.assertEqual(x.dtype, nv.dtype)
                 self.assertEqual(x.pdim, pdim)
-                x = PDA(pdim,v)
+                x = PV(pdim,v)
                 self.assertEqual(x.shape, nv.shape)
                 self.assertEqual(x.dtype, nv.dtype)
                 self.assertEqual(x.pdim, pdim)
 
             with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                x = PDA(5,v,_time)
+                x = PV(5,v,_time)
 
             with self.assertRaisesRegex(TypeError,"^Can only specify one"):
-                x = PDA(v,v,_time)
+                x = PV(v,v,_time)
 
         # temporarily turn of this deprecation warning as we want are intentionally
-        #   attempting a bad list with intent of Array constructor failing it
+        #   attempting a bad list with intent of PV constructor failing it
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning)
-            with self.assertRaisesRegex(TypeError,"^Cannot create Array of"):
-                x = PDA([[1,2,3],[4,5],6])
+            with self.assertRaisesRegex(TypeError,"^Cannot create PhysicalValue for"):
+                x = PV([[1,2,3],[4,5],6])
 
-        with self.assertRaisesRegex(TypeError,"^Cannot create Array of"):
-            x = PDA(['cat',5,3.2])
+        with self.assertRaisesRegex(TypeError,"^Cannot create PhysicalValue for"):
+            x = PV(['cat',5,3.2])
 
     def test_init_ndarray(self):
         base_arrays = (
@@ -117,32 +117,32 @@ class ArrayTests(unittest.TestCase):
             )
 
         for v in base_arrays:
-            x = PDA(v)
+            x = PV(v)
             self.assertEqual(x.shape, v.shape)
             self.assertEqual(x.dtype, v.dtype)
             self.assertTrue(x.base is v)
             self.assertEqual(x.pdim, _dimless)
 
             for pdim in (_dimless, _density):
-                x = PDA(v,pdim)
+                x = PV(v,pdim)
                 self.assertEqual(x.shape, v.shape)
                 self.assertEqual(x.dtype, v.dtype)
                 self.assertTrue(x.base is v)
                 self.assertEqual(x.pdim, pdim)
-                x = PDA(pdim,v)
+                x = PV(pdim,v)
                 self.assertEqual(x.shape, v.shape)
                 self.assertEqual(x.dtype, v.dtype)
                 self.assertTrue(x.base is v)
                 self.assertEqual(x.pdim, pdim)
 
             with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                x = PDA(5,v,_time)
+                x = PV(5,v,_time)
 
             with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                x = PDA(v,[1,2,3],_time)
+                x = PV(v,[1,2,3],_time)
 
             with self.assertRaisesRegex(TypeError,"^Can only specify one"):
-                x = PDA(v,base_arrays[0],_time)
+                x = PV(v,base_arrays[0],_time)
 
     def test_init_array(self):
         base_arrays = (
@@ -152,36 +152,36 @@ class ArrayTests(unittest.TestCase):
             np.array([1+2j, 1-3j, 5.2, 3]),
             )
 
-        base_Arrays = tuple( PDA(a,pdim) for a in base_arrays for pdim in (_dimless,_time) )
+        base_physdims = tuple( PV(a,pdim) for a in base_arrays for pdim in (_dimless,_time) )
 
-        for v in base_Arrays:
-            x = PDA(v)
+        for v in base_physdims:
+            x = PV(v)
             self.assertEqual(x.shape, v.shape)
             self.assertEqual(x.dtype, v.dtype)
             self.assertTrue(x.base is v.base)
             self.assertEqual(x.pdim, v.pdim)
 
             for s in (1, 3.0, 1-1j, np.array(-2.1)):
-                x = PDA(s,v)
+                x = PV(s,v)
                 self.assertEqual(x.shape, v.shape)
                 self.assertFalse(x.base is v.base)
                 self.assertEqual(x.pdim, v.pdim)
 
             for pdim in (_dimless, _density):
                 with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                    x = PDA(v,pdim)
+                    x = PV(v,pdim)
 
             with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                x = PDA(v,[1,2,3])
+                x = PV(v,[1,2,3])
 
             with self.assertRaisesRegex(TypeError,"^Cannot specify both"):
-                x = PDA(v,base_arrays[0])
+                x = PV(v,base_arrays[0])
 
             with self.assertRaisesRegex(TypeError,"^Can only specify one"):
-                x = PDA(v,base_Arrays[0])
+                x = PV(v,base_physdims[0])
 
     def test_init_failure(self):
         with self.assertRaisesRegex(TypeError,"^Unrecognized inputs.*shape"):
-            x = PDA([1,2,3],shape=(5,2),pdim=_length)
-        with self.assertRaisesRegex(TypeError,"^Cannot create Array of"):
-            x = PDA(['cat','dog','pencil'],pdim=_time)
+            x = PV([1,2,3],shape=(5,2),pdim=_length)
+        with self.assertRaisesRegex(TypeError,"^Cannot create PhysicalValue for"):
+            x = PV(['cat','dog','pencil'],pdim=_time)

@@ -1,39 +1,72 @@
-"""Physical Dimension Array
+"""Physical Values (and Arrays)
 
 This is a subclass of a numpy ndarray that adds a physical
-dimensionality to the array.
+dimensionality attribute to numerical values. This includes 
+both array ad scalar values, the latter being expressed as 
+instances of a 0-Dimension ndarray.
 
-Note that there are no traditional units attached to a given
-instance of PhysDim.Array.  That is introduced through
-PhysDim.Unit.
+The physical dimensionality is based on tracking the exponents on
+7 fundamental physical properties:
+    - Length (L)
+    - Time (T)
+    - Mass (M)
+    - Angle (A)
+    - Electric charge (E)
+    - Absolute temperature (K)
+    - Intensity of light (I)
 
-The dimensionality is added to the underlying ndarray via the
-pdim attribute (which is an instance of PhysDim.Dim)
+There are no traditional units attached to a given PhysicalValue instance.  
+The notion of units is introduced through physdim.Unit.
+
+PhysicalValue ensures that the any mathematical operation properly
+handles the physical dimension.  In addition to returning
+the values with the appropriate dimensionality, it also raises 
+exceptions when attempts are made to mix incompatible
+physical dimensions when evaluating expressions.  
+
+For example:
+    - NOT allowed:
+      - Adding a length and a mass
+      - Taking difference between a length and a mass
+    - Allowed:
+      - Adding two lengths
+      - Taking difference between two accelerations
+      - Multiplying a length and a mass (yields moment of inertia)
+      - Dividing a mass by a volume (yields density)
+
+    - Allowed:
+      - Applying a trig function to an angle
+      - Applying a trig function to a dimensionless value
+      - Applying arctan2 to two identical physical dimensions
+      - Applyng an inverse trig function to a dimensionless value
+    - NOT allowed:
+      - Applying a trig function to anything else
+      - Applying an inverse trig function anything else
 """
 
 import numpy as np
 from numbers import Number
 
-from . import _ufunc
-from . import Dim
+from .dim import PhysicalDimension
+from ._ufunc import io_map as ufunc_io_map
 
-class Array(np.ndarray):
+class PhysicalValue(np.ndarray):
     __slot__ = ('pdim')
 
     def __new__(cls, *args, **kwargs):
         parsed_args = _parse_args(args,kwargs)
         if kwargs:
             raise TypeError(" ".join(( 
-                "Unrecognized inputs to Array constructor:",
+                "Unrecognized inputs to PhysicalValue constructor:",
                 ", ".join(kwargs.keys()))))
         if 'ref' in parsed_args:
             obj = parsed_args['ref']
             if 'scale' in parsed_args:
                 obj = parsed_args['scale'] * obj
                 # if ref is dimensionless, scaling will return a np.ndarray
-                if type(obj) is not Array:
-                    obj = obj.view(Array)
-                    obj.pdim = Dim()
+                if type(obj) is not PhysicalValue:
+                    obj = obj.view(PhysicalValue)
+                    obj.pdim = PhysicalDimension()
             else:
                 obj = parsed_args['ref']
 
@@ -46,14 +79,14 @@ class Array(np.ndarray):
                 obj = np.array(parsed_args['scale'])
             else:
                 obj = np.array(1)
-            obj = obj.view(Array)
-            obj.pdim = parsed_args['pdim'] if 'pdim' in parsed_args else Dim()
+            obj = obj.view(PhysicalValue)
+            obj.pdim = parsed_args['pdim'] if 'pdim' in parsed_args else PhysicalDimension()
         return obj
 
     def __array_finalize__(self,obj):
         if obj is None: return
         if not issubclass(self.dtype.type, np.number):
-            raise TypeError(f"Cannot create Array of {self.dtype}")
+            raise TypeError(f"Cannot create PhysicalValue for {self.dtype}")
         self.pdim = getattr(obj,'pdim',None)
 
     @property 
@@ -81,22 +114,22 @@ class Array(np.ndarray):
 
 
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
-        pdim = _ufunc.io_map(ufunc,self,args)
+        pdim = ufunc_io_map(ufunc,self,args)
 
-        # down-convert any Array inputs to numpy.ndarray 
+        # down-convert any PhysicalValue inputs to numpy.ndarray 
         in_args = [ 
-            arg.view(np.ndarray) if isinstance(arg,Array) else arg
+            arg.view(np.ndarray) if isinstance(arg,PhysicalValue) else arg
             for arg in args
             ]
 
-        # down-convert any user specified Array outputs to numpy.ndarray
+        # down-convert any user specified PhysicalValue outputs to numpy.ndarray
         if out is not None:
             kwargs['out'] = tuple(
-                o.view(np.ndarray) if isinstance(o,Array) else o
+                o.view(np.ndarray) if isinstance(o,PhysicalValue) else o
                 for o in out 
                 )
 
-        # invoke the ufunc without Array arguments
+        # invoke the ufunc without PhysicalValue arguments
         results = super().__array_ufunc__(ufunc, method, *in_args, **kwargs)
         if results is NotImplemented:
             return NotImplemented
@@ -119,24 +152,24 @@ class Array(np.ndarray):
 
 def _convert_result(result, pdim, *, out=None): 
     if pdim:
-        if type(out) is Array:
+        if type(out) is PhysicalValue:
             out.pdim = pdim
             return out
         elif isinstance(result,np.ndarray):
-            r = result.view(Array)
+            r = result.view(PhysicalValue)
             r.pdim = pdim
             return r
         elif isinstance(result,np.number):
-            return Array([result],pdim=pdim)
+            return PhysicalValue([result],pdim=pdim)
         else:
-            return Array(np.asarray(result),pdim=pdim)
+            return PhysicalValue(np.asarray(result),pdim=pdim)
     else:
-        if type(out) is Array:
+        if type(out) is PhysicalValue:
             return out.view(np.ndarray)
         else:
             return result
 
-_exclusive_constructor_args = { 
+_invalid_arg_pairs = { 
     ('ref','array'),('ref','values'),('ref','pdim'),
     ('array','values'),('array','scale'),
     ('scale','values'), }
@@ -145,7 +178,7 @@ def _add_arg(args, arg, key):
     if key in args:
         raise TypeError(f"Can only specify one {key} argument")
     for k in args.keys():
-        if (key,k) in _exclusive_constructor_args or (k,key) in _exclusive_constructor_args:
+        if (key,k) in _invalid_arg_pairs or (k,key) in _invalid_arg_pairs:
             raise TypeError(f"Cannot specify both {key} and {k} arguments")
     args[key] = arg
 
@@ -155,14 +188,14 @@ def _parse_args(args,kwargs):
         rval['pdim'] = kwargs['pdim']
         del kwargs['pdim']
     for arg in args:
-        if isinstance(arg,Array):
+        if isinstance(arg,PhysicalValue):
             _add_arg(rval,arg,'ref')
         elif isinstance(arg,np.ndarray):
             if arg.size == 1:
                 _add_arg(rval,arg.flat[0],'scale')
             else:
                 _add_arg(rval,arg,'array')
-        elif isinstance(arg,Dim):
+        elif isinstance(arg,PhysicalDimension):
             _add_arg(rval,arg,'pdim')
         elif isinstance(arg,Number):
             _add_arg(rval,arg,'scale')

@@ -45,14 +45,14 @@ _DERIVED_DIMS = {
 }
 
 
-class Dim(object):
+class PhysicalDimension(object):
     __slot__ = ('_exp')
 
     def __init__(self, dim=None, *, 
                  length=0, time=0, mass=0, angle=0, charge=0, temp=0, illum=0 ):
-        """Dim constructor
+        """PhysicalDimension constructor
 
-        A Dim object can be contructed by one of three methods:
+        A PhysicalDimension object can be contructed by one of three methods:
 
             - specify the exponents for each of the fundamental properties:
               - length (number): optional 
@@ -67,14 +67,14 @@ class Dim(object):
               - dim (tuple): (length, time, mass, angle, charge, temp, illum)
 
             - copy constructor
-              - dim (Dim): existing Dim object
+              - dim (PhysicalDimension): existing PhysicalDimension object
         """
         arg_exp = (length,time,mass,angle,charge,temp,illum)
         if dim is not None:
             if np.any(arg_exp):
                 raise TypeError("Cannot specify both the dim tuple and individual exponents")
-            if type(dim) is Dim:
-                # assume that if dim is already a Dim, we don't need to check the exponent types
+            if type(dim) is PhysicalDimension:
+                # assume that if dim is already a PhysicalDimension, we don't need to check the exponent types
                 exp = dim._exp
             else:
                 # Try to convert it to a tuple and verify that the tuple has 7 entries
@@ -107,7 +107,7 @@ class Dim(object):
 
     @property
     def inverse(self):
-        return Dim(tuple(-t for t in self._exp))
+        return PhysicalDimension(tuple(-t for t in self._exp))
 
     def __eq__(self,other):
         try:
@@ -117,7 +117,7 @@ class Dim(object):
 
     def __mul__(self,other):
         try:
-            return Dim(tuple(a+b for a,b in zip(self._exp,other._exp)))
+            return PhysicalDimension(tuple(a+b for a,b in zip(self._exp,other._exp)))
         except:
             raise NotDimLike(other)
 
@@ -125,22 +125,22 @@ class Dim(object):
 
     def __truediv__(self,other):
         try:
-            return Dim(tuple(a-b for a,b in zip(self._exp,other._exp)))
+            return PhysicalDimension(tuple(a-b for a,b in zip(self._exp,other._exp)))
         except:
             raise NotDimLike(other)
 
     def __rtruediv__(self,other):
         try:
-            return Dim(tuple(b-a for a,b in zip(self._exp,other._exp)))
+            return PhysicalDimension(tuple(b-a for a,b in zip(self._exp,other._exp)))
         except:
             raise NotDimLike(other)
 
     def __pow__(self,n):
-        return Dim(tuple(a*n for a in self._exp))
+        return PhysicalDimension(tuple(a*n for a in self._exp))
 
     def __repr__(self):
         keys = ('length','time','mass','angle','charge','temp','illum')
-        return (f"Dim("
+        return (f"PhysicalDimension("
                 + ",".join(f"{n}={e}" for n,e in zip(keys,self._exp) if e)
                 + ",)")
 

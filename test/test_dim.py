@@ -1,15 +1,15 @@
 import unittest
 
-from PhysDim import Dim 
+from physdim import PhysicalDimension as Dim 
 
 _length = (1,0,0,0,0,0,0)
 _time = (0,1,0,0,0,0,0)
 _mass = (0,0,1,0,0,0,0)
 _angle = (0,0,0,1,0,0,0)
 
-from PhysDim.exceptions import NotDimLike
+from physdim.exceptions import NotDimLike
 
-class DimTests(unittest.TestCase):
+class PhysicalDimTests(unittest.TestCase):
     def test_init_kwargs(self):
         l = Dim(length=1)
         self.assertEqual(l._exp,_length)

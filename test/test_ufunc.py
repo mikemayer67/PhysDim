@@ -3,13 +3,13 @@ import unittest
 import numpy as np
 import numbers
 
-from PhysDim import Array as PDA
-from PhysDim import Dim 
+from physdim import PhysicalValue as PV
+from physdim import PhysicalDimension as Dim
 
-import PhysDim._ufunc as ufunc
+import physdim._ufunc as ufunc
 
-from PhysDim.exceptions import IncompatibleDimensions
-from PhysDim.exceptions import UnsupportedUfunc
+from physdim.exceptions import IncompatibleDimensions
+from physdim.exceptions import UnsupportedUfunc
 
 _length = Dim(length=1)
 _time = Dim(time=1)
@@ -39,18 +39,18 @@ class UfuncTests(unittest.TestCase):
         shape = (2,3)
         size = np.prod(shape)
 
-        self.x = PDA((np.arange(size)+1).reshape(shape),_length)
-        self.y = PDA((np.arange(size)+0.5).reshape(shape),_length)
-        self.z = PDA((np.arange(size)+(1+.5j)).reshape(shape),_length)
-        self.t = PDA((np.arange(size)+1).reshape(shape),_time)
-        self.a = PDA(np.arange(size).reshape(shape),_angle)
-        self.n = PDA(np.arange(size).reshape(shape),_dimless)
-        self.s = PDA(np.array(3),_length)
+        self.x = PV((np.arange(size)+1).reshape(shape),_length)
+        self.y = PV((np.arange(size)+0.5).reshape(shape),_length)
+        self.z = PV((np.arange(size)+(1+.5j)).reshape(shape),_length)
+        self.t = PV((np.arange(size)+1).reshape(shape),_time)
+        self.a = PV(np.arange(size).reshape(shape),_angle)
+        self.n = PV(np.arange(size).reshape(shape),_dimless)
+        self.s = PV(np.array(3),_length)
 
     def test_same_pdim(self):
-        x = PDA(5,_length)
-        y = PDA(5+2j,_length)
-        t = PDA(1.2,_time)
+        x = PV(5,_length)
+        y = PV(5+2j,_length)
+        t = PV(1.2,_time)
 
         self.assertTrue(ufunc.same_pdim(x,y))
         self.assertFalse(ufunc.same_pdim(x,t))
@@ -76,11 +76,11 @@ class UfuncTests(unittest.TestCase):
                 result = f(x)
 
         n = self.n
-        n = PDA(n / (1 + n.size),_dimless)
+        n = PV(n / (1 + n.size),_dimless)
 
         for f in (np.arcsin, np.arccos, np.arctan):
             result = f(n)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, n.shape)
             self.assertEqual(result.pdim, _angle)
 
@@ -89,12 +89,12 @@ class UfuncTests(unittest.TestCase):
 
         for a,b in ((x,y),(x,s),(s,x)):
             result = np.arctan2(a,b)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _angle)
 
         result = np.hypot(x,y)
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, _length)
 
@@ -114,7 +114,7 @@ class UfuncTests(unittest.TestCase):
                 with self.assertRaisesRegex(TypeError, "^Argument to.*must be dimensionless"):
                     result = f(v)
 
-        n = PDA(self.n.view(np.ndarray) + 2,_dimless)
+        n = PV(self.n.view(np.ndarray) + 2,_dimless)
         result = np.arccosh(n)
         self.assertTrue(type(result) is np.ndarray)
         self.assertEqual(result.shape,n.shape)
@@ -152,7 +152,7 @@ class UfuncTests(unittest.TestCase):
         x, y, z, t, a, n  = (self.x, self.y, self.z, self.t, self.a, self.n)
 
         result = -x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertEqual(result.dtype, x.dtype)
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
@@ -165,7 +165,7 @@ class UfuncTests(unittest.TestCase):
 
                 result = f(v)
                 self.assertEqual(result.shape, v.shape)
-                self.assertTrue(type(result) == (np.ndarray if v is n else PDA))
+                self.assertTrue(type(result) == (np.ndarray if v is n else PV))
                 if f is not np.absolute or v is not z:
                     self.assertEqual(result.dtype, v.dtype)
                 if v is not n:
@@ -190,7 +190,7 @@ class UfuncTests(unittest.TestCase):
         x, y, z, t = (self.x, self.y, self.z, self.t)
 
         result = x + y
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
@@ -199,7 +199,7 @@ class UfuncTests(unittest.TestCase):
             for v in (x,y,z):
                 result = f(x,v)
                 self.assertEqual(result.shape, v.shape)
-                self.assertTrue(type(result) is PDA)
+                self.assertTrue(type(result) is PV)
                 self.assertEqual(result.dtype, v.dtype)
                 self.assertEqual(result.pdim, v.pdim)
 
@@ -208,7 +208,7 @@ class UfuncTests(unittest.TestCase):
 
         result = np.heaviside(x,y)
         self.assertEqual(result.shape, x.shape)
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_number(result))
         self.assertEqual(result.pdim, y.pdim)
 
@@ -217,57 +217,57 @@ class UfuncTests(unittest.TestCase):
         x, y, z, t = (self.x, self.y, self.z, self.t)
 
         result = x * y
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim * y.pdim)
 
         result = x * z
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_complex(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim * z.pdim)
 
         result = x * t
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim * t.pdim)
 
-        tt = PDA(5,_time)
+        tt = PV(5,_time)
         result = x * tt
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim * _time)
 
         result = tt * x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim * _time)
 
         result = x * 5.2
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
         result = (2+3j) * x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_complex(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
         n = np.arange(x.size).reshape(x.shape)
         result = x * n
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
         result = n * x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
@@ -288,57 +288,57 @@ class UfuncTests(unittest.TestCase):
         self.assertEqual(result.shape, x.shape)
 
         result = x / t
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim / t.pdim)
 
         result = x // t
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim / t.pdim)
 
-        tt = PDA(5,_time)
+        tt = PV(5,_time)
         result = x / tt
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim / _time)
 
         result = x // tt
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_integer(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim / _time)
 
         result = tt / x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, _time / x.pdim)
 
         result = x / 5.2
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
         result = (2+3j) / x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_complex(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim.inverse)
 
         n = (np.arange(x.size)+1).reshape(x.shape)
         result = x / n
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim)
 
         result = n / x
-        self.assertTrue(type(result) is PDA)
+        self.assertTrue(type(result) is PV)
         self.assertTrue(is_inexact(result))
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim.inverse)
@@ -348,28 +348,28 @@ class UfuncTests(unittest.TestCase):
 
         for v in (x,y,z):
             result = v**2
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, v.shape)
             self.assertEqual(result.pdim, _length*_length)
 
             result = np.square(v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, v.shape)
             self.assertEqual(result.pdim, _length*_length)
 
             result = np.sqrt(v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, v.shape)
             self.assertEqual(result.pdim, _length**0.5)
 
             if not v is z:
                 result = np.cbrt(v)
-                self.assertTrue(type(result) is PDA)
+                self.assertTrue(type(result) is PV)
                 self.assertEqual(result.shape, v.shape)
                 self.assertEqual(result.pdim, _length**(1/3))
 
             result = np.reciprocal(v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, v.shape)
             self.assertEqual(result.pdim, _length**-1)
 
@@ -379,7 +379,7 @@ class UfuncTests(unittest.TestCase):
 
         for n in (3, 2.5):
             result = x ** n
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length**n)
 
@@ -391,23 +391,23 @@ class UfuncTests(unittest.TestCase):
         x, y, t = (self.x, self.y, self.t)
         t.flat[3] = 100  # avoid div by zero
 
-        n = PDA(5,_length)
+        n = PV(5,_length)
 
         for v in (y,n):
             result = x % v
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length)
 
         for v in (y,n):
             result = np.fmod(x,v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length)
 
         for v in (y,n):
             result = v % x
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length)
 
@@ -419,25 +419,25 @@ class UfuncTests(unittest.TestCase):
         x, y, t = (self.x, self.y, self.t)
         t.flat[3] = 100  # avoid div by zero
 
-        n = PDA(5,_length)
+        n = PV(5,_length)
 
-        qo = PDA(np.zeros(x.shape),_dimless)
-        ro = PDA(np.zeros(x.shape),_dimless)
+        qo = PV(np.zeros(x.shape),_dimless)
+        ro = PV(np.zeros(x.shape),_dimless)
 
         for v in (y,n):
             q,r = divmod(x,v)
 
             self.assertTrue(type(q) is np.ndarray)
-            self.assertTrue(type(r) is PDA)
+            self.assertTrue(type(r) is PV)
             self.assertEqual(q.shape, x.shape)
             self.assertEqual(r.shape, x.shape)
             self.assertEqual(r.pdim, _length)
 
             q,r = np.divmod(x,v,out=(qo,ro))
             self.assertTrue(type(q) is np.ndarray)
-            self.assertTrue(type(r) is PDA)
-            self.assertTrue(type(qo) is PDA)
-            self.assertTrue(type(ro) is PDA)
+            self.assertTrue(type(r) is PV)
+            self.assertTrue(type(qo) is PV)
+            self.assertTrue(type(ro) is PV)
             self.assertEqual(q.shape, x.shape)
             self.assertEqual(r.shape, x.shape)
             self.assertEqual(r.pdim, _length)
@@ -447,8 +447,8 @@ class UfuncTests(unittest.TestCase):
 
             q,r = np.divmod(x,v,out=(qo,None))
             self.assertTrue(type(q) is np.ndarray)
-            self.assertTrue(type(r) is PDA)
-            self.assertTrue(type(qo) is PDA)
+            self.assertTrue(type(r) is PV)
+            self.assertTrue(type(qo) is PV)
             self.assertEqual(q.shape, x.shape)
             self.assertEqual(r.shape, x.shape)
             self.assertEqual(r.pdim, _length)
@@ -456,8 +456,8 @@ class UfuncTests(unittest.TestCase):
 
             q,r = np.divmod(x,v,out=(None,ro))
             self.assertTrue(type(q) is np.ndarray)
-            self.assertTrue(type(r) is PDA)
-            self.assertTrue(type(ro) is PDA)
+            self.assertTrue(type(r) is PV)
+            self.assertTrue(type(ro) is PV)
             self.assertEqual(q.shape, x.shape)
             self.assertEqual(r.shape, x.shape)
             self.assertEqual(r.pdim, _length)
@@ -473,7 +473,7 @@ class UfuncTests(unittest.TestCase):
     def test_dimensionless_unary(self):
         x, n = (self.x, self.n)
 
-        n = PDA(n.view(np.ndarray) + 2,_dimless)
+        n = PV(n.view(np.ndarray) + 2,_dimless)
 
         for f in (np.rint, np.exp, np.exp2, np.log, np.log2, 
                   np.log10, np.expm1, np.log1p):
@@ -552,26 +552,26 @@ class UfuncTests(unittest.TestCase):
 
         for f in (np.min, np.max):
             result = f(x)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.size, 1)
             self.assertEqual(result.pdim, _length)
 
         for f in (np.min, np.max):
             result = f(x,axis=0)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, (x.shape[1],))
             self.assertEqual(result.pdim, _length)
         
         for f in (np.min, np.max):
             result = f(x,axis=1)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape, (x.shape[0],))
             self.assertEqual(result.pdim, _length)
         
         for f in (np.fmin, np.fmax, np.minimum, np.maximum):
             for v in (x,y):
                 result = f(x,v)
-                self.assertTrue(type(result) is PDA)
+                self.assertTrue(type(result) is PV)
                 self.assertEqual(result.shape, x.shape)
                 self.assertEqual(result.pdim, _length)
 
@@ -593,7 +593,7 @@ class UfuncTests(unittest.TestCase):
 
         for v in (x,y):
             result = np.fabs(v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape,v.shape)
             self.assertEqual(result.pdim, v.pdim)
 
@@ -604,7 +604,7 @@ class UfuncTests(unittest.TestCase):
         for v in (y,n):
             print(f"copysign({x},{v})")
             result = np.copysign(x,v)
-            self.assertTrue(type(result) is PDA)
+            self.assertTrue(type(result) is PV)
             self.assertEqual(result.shape,x.shape)
             self.assertEqual(result.pdim, x.pdim)
 

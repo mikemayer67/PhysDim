@@ -1,21 +1,17 @@
-"""Universal Function (ufunc) support to PhysDim.Array
+"""Universal Function (ufunc) support to the PhysicalValue class
 
 In order to keep the efficiency provided by numpy's ufuncs, we need
-to cast any PhysDim.Array object passed as input to a ufunc into 
+to cast any PhysicalValue object passed as input to a ufunc into 
 a numpy.ndarray.  For most (but not all) ufunc, we will also want
-to cast the returned numpy.ndarray to a PhySim.Array with appropriate
+to cast the returned numpy.ndarray to a PhySim.PhysicalValue with appropriate
 physical dimensionality.
 """
 
 import numpy as np
 
-from ._funcs import output_pdim
-from ._funcs import same_pdim
-from ._funcs import assert_same_pdim
-
 from .exceptions import IncompatibleDimensions
 from .exceptions import UnsupportedUfunc
-from .dim import Dim
+from .dim import PhysicalDimension 
 
 # List of numpy ufuncs was found here:
 #   https://numpy.org/devdocs/reference/ufuncs.html
@@ -71,6 +67,22 @@ io_mapping = {
 
 # Convenience functions for testing input counts
 
+def output_pdim(pdim):
+    return None if pdim.is_dimensionless else pdim
+
+# Convenience functions for testing for same dimensionality 
+
+def same_pdim(a,b):
+    try:
+        return a.pdim == b.pdim
+    except:
+        return False
+
+def assert_same_pdim(a,b):
+    if not same_pdim(a,b):
+        raise IncompatibleDimensions(a,b)
+
+
 def assert_one_input(ufunc,args):
     assert len(args) == 1, (
         f"{ufunc.__name__} expects 1 input, {len(args)} found" )
@@ -83,7 +95,7 @@ def assert_two_inputs(ufunc,args):
     assert ufunc.nin == 2, (
         f"{ufunc.__name__} expects 2 inputs, but ufunc.nin is {ufunc.nin}" )
 
-# Functions for validating ufunc inputs involviing a PhysDim.Array input
+# Functions for validating ufunc inputs involviing a PhysicalValue input
 #   and returning the appropriate physical dimensionality of each output
 
 def io_map_a_n(ufunc,obj,args):
@@ -98,14 +110,14 @@ def io_map_n_a(ufunc,obj,args):
             raise TypeError(" ".join((
                 f"Argument{'s' if ufunc.nin>1 else ''} to {ufunc.__name__}",
                 f"must be dimensionless, not {tuple(arg.pdim for arg in args)}")))
-    return Dim(angle=1)
+    return PhysicalDimension(angle=1)
 
 def io_map_arctan2(ufunc,obj,args):
     assert_two_inputs(ufunc,args)
     for arg in args:
         if not same_pdim(obj,arg):
             raise IncompatibleDimensions(obj,arg)
-    return Dim(angle=1)
+    return PhysicalDimension(angle=1)
 
 def io_map_n_n(ufunc,obj,args):
     for arg in args:
@@ -166,7 +178,7 @@ def io_map_pow(ufunc,obj,args):
             "Cannot raise a dimensional quantity to anything other than a scalar:"
             f"{ufunc.__name__} {pdim[1]}")))
 
-    # having ruled out args[1] as an Array, args[0] must be an Array
+    # having ruled out args[1] as an PhysicalValue, args[0] must be an PhysicalValue
     return output_pdim(args[0].pdim ** n)
 
 def io_map_mod(ufunc,obj,args):
