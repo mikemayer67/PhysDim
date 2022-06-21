@@ -130,7 +130,7 @@ class UfuncTests(unittest.TestCase):
                 with self.assertRaises(UnsupportedUfunc):
                     result = f(v)
 
-    def test_ufunc_compare(self):
+    def test_compare(self):
         x, y, z, t  = (self.x, self.y, self.z, self.t)
 
         result = x < y
@@ -148,7 +148,7 @@ class UfuncTests(unittest.TestCase):
             with self.assertRaises(IncompatibleDimensions):
                 result = f(x,t)
 
-    def test_ufunc_unary_op(self):
+    def test_unary_op(self):
         x, y, z, t, a, n  = (self.x, self.y, self.z, self.t, self.a, self.n)
 
         result = -x
@@ -171,7 +171,7 @@ class UfuncTests(unittest.TestCase):
                 if v is not n:
                     self.assertEqual(result.pdim, v.pdim)
 
-    def test_ufunc_unary_test(self):
+    def test_unary_test(self):
         x, y, z, t,n  = (self.x, self.y, self.z, self.t, self.n)
 
         for f in (np.sign,):
@@ -186,7 +186,7 @@ class UfuncTests(unittest.TestCase):
                 self.assertEqual(result.shape, v.shape)
                 self.assertTrue(is_bool(result))
 
-    def test_ufunc_add_like(self):
+    def test_add_like(self):
         x, y, z, t = (self.x, self.y, self.z, self.t)
 
         result = x + y
@@ -213,7 +213,7 @@ class UfuncTests(unittest.TestCase):
         self.assertEqual(result.pdim, y.pdim)
 
 
-    def test_ufunc_mul(self):
+    def test_mul(self):
         x, y, z, t = (self.x, self.y, self.z, self.t)
 
         result = x * y
@@ -273,7 +273,7 @@ class UfuncTests(unittest.TestCase):
         self.assertEqual(result.pdim, x.pdim)
 
 
-    def test_ufunc_div(self):
+    def test_div(self):
         x, y, z, t = (self.x, self.y, self.z, self.t)
         t.flat[3] = 100  # avoid div by zero
 
@@ -343,7 +343,7 @@ class UfuncTests(unittest.TestCase):
         self.assertEqual(result.shape, x.shape)
         self.assertEqual(result.pdim, x.pdim.inverse)
 
-    def test_ufunc_pow_funcs(self):
+    def test_pow_funcs(self):
         x, y, z = (self.x, self.y, self.z)
 
         for v in (x,y,z):
@@ -373,7 +373,7 @@ class UfuncTests(unittest.TestCase):
             self.assertEqual(result.shape, v.shape)
             self.assertEqual(result.pdim, _length**-1)
 
-    def test_ufunc_pow(self):
+    def test_pow(self):
         x, y, z, t = (self.x, self.y, self.z, self.t)
         t.flat[3] = 100  # avoid div by zero
 
@@ -387,7 +387,7 @@ class UfuncTests(unittest.TestCase):
             "^Exponents on dimensions must all be real numbers"):
             result = x ** (1+1j)
 
-    def test_ufunc_mod(self):
+    def test_mod(self):
         x, y, t = (self.x, self.y, self.t)
         t.flat[3] = 100  # avoid div by zero
 
@@ -395,6 +395,12 @@ class UfuncTests(unittest.TestCase):
 
         for v in (y,n):
             result = x % v
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, x.shape)
+            self.assertEqual(result.pdim, _length)
+
+        for v in (y,n):
+            result = np.fmod(x,v)
             self.assertTrue(type(result) is PDA)
             self.assertEqual(result.shape, x.shape)
             self.assertEqual(result.pdim, _length)
@@ -409,7 +415,7 @@ class UfuncTests(unittest.TestCase):
             "^Dividend and divisor must have same dimensionality"):
             result = x % t
 
-    def test_ufunc_divmod(self):
+    def test_divmod(self):
         x, y, t = (self.x, self.y, self.t)
         t.flat[3] = 100  # avoid div by zero
 
@@ -464,7 +470,7 @@ class UfuncTests(unittest.TestCase):
             "^Dividend and divisor must have same dimensionality"):
             q,r = divmod(x,t)
 
-    def test_ufunc_dimensionless_unary(self):
+    def test_dimensionless_unary(self):
         x, n = (self.x, self.n)
 
         n = PDA(n.view(np.ndarray) + 2,pdim=_dimless)
@@ -479,7 +485,7 @@ class UfuncTests(unittest.TestCase):
             with self.assertRaisesRegex(TypeError,"^Argument to.*must be dimensionless"):
                 result = f(x)
 
-    def test_ufunc_dimensionless_op(self):
+    def test_dimensionless_op(self):
         (x,y,n) = (self.x, self.y, self.n)
         m = np.transpose(n).reshape(n.shape)
 
@@ -494,7 +500,7 @@ class UfuncTests(unittest.TestCase):
             with self.assertRaisesRegex(TypeError,"^Arguments to.*must be dimensionless"):
                 result = f(x,n)
 
-    def test_ufunc_bitwise(self):
+    def test_bitwise(self):
         (x,y,n) = (self.x, self.y, self.n)
         s = 5
 
@@ -525,7 +531,7 @@ class UfuncTests(unittest.TestCase):
             result = ~x
 
 
-    def test_ufunc_logical(self):
+    def test_logical(self):
         (x,y,n) = (self.x, self.y, self.n)
         s = 5
 
@@ -540,13 +546,74 @@ class UfuncTests(unittest.TestCase):
             result = np.logical_not(x)
 
 
-    def test_ufunc_minmax(self):
+    def test_minmax(self):
         (x,y,z,n) = (self.x, self.y, self.z, self.n)
         s = 5
+
+        for f in (np.min, np.max):
+            result = f(x)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.size, 1)
+            self.assertEqual(result.pdim, _length)
+
+        for f in (np.min, np.max):
+            result = f(x,axis=0)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, (x.shape[1],))
+            self.assertEqual(result.pdim, _length)
         
-        for f in (np.min, np.max, np.minimum, np.maximum):
+        for f in (np.min, np.max):
+            result = f(x,axis=1)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape, (x.shape[0],))
+            self.assertEqual(result.pdim, _length)
+        
+        for f in (np.fmin, np.fmax, np.minimum, np.maximum):
             for v in (x,y):
                 result = f(x,v)
                 self.assertTrue(type(result) is PDA)
                 self.assertEqual(result.shape, x.shape)
                 self.assertEqual(result.pdim, _length)
+
+    def test_float(self):
+        (x,y,z,n) = (self.x, self.y, self.z, self.n)
+
+        for f in (np.isfinite, np.isinf, np.isnan):
+            for v in (x,y,z,n):
+                result = f(v)
+                self.assertTrue(type(result) is np.ndarray)
+                self.assertEqual(result.shape,v.shape)
+                self.assertEqual(result.dtype,np.bool)
+
+        for v in (x,y,n):
+            result = np.signbit(v)
+            self.assertTrue(type(result) is np.ndarray)
+            self.assertEqual(result.shape,v.shape)
+            self.assertEqual(result.dtype,np.bool)
+
+        for v in (x,y):
+            result = np.fabs(v)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape,v.shape)
+            self.assertEqual(result.pdim, v.pdim)
+
+        result = np.fabs(n)
+        self.assertTrue(type(result) is np.ndarray)
+        self.assertEqual(result.shape,v.shape)
+
+        for v in (y,n):
+            print(f"copysign({x},{v})")
+            result = np.copysign(x,v)
+            self.assertTrue(type(result) is PDA)
+            self.assertEqual(result.shape,x.shape)
+            self.assertEqual(result.pdim, x.pdim)
+
+        for f in (np.nextafter,np.ldexp):
+            with self.assertRaises(UnsupportedUfunc):
+                for v in (x,y,z,n):
+                    result = f(x,v)
+
+        for f in (np.spacing,np.frexp,np.floor,np.ceil,np.trunc):
+            with self.assertRaises(UnsupportedUfunc):
+                for v in (x,y,z,n):
+                    result = f(v)

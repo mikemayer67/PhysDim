@@ -13,7 +13,6 @@ pdim attribute (which is an instance of PhysDim.Dim)
 
 import numpy as np
 
-from . import _afunc
 from . import _ufunc
 
 class Array(np.ndarray):
@@ -63,27 +62,8 @@ class Array(np.ndarray):
     def is_dimensionless(self):
         return self.pdim.is_dimensionless
 
-    def fmin(*args,**kwargs):
-        import pdb; pdb.set_trace()
-        return super().fmin(*args,**kwargs)
-
-    def __array_function__(self, func, types, *args, **kwargs):
-        print(f"{func}: {type} {args} {kwargs}")
-        import pdb; pdb.set_trace()
-
-        io_map = _afunc.io_map(func,self,args)
-
-        if io_map is not None:
-            pdim = io_map(func,self,args)
-
-        results = super().__array_function__(func,types,*args,**kwargs)
-
-        return results
-
 
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
-        print(f"{ufunc}:: {args}")
-
         pdim = _ufunc.io_map(ufunc,self,args)
 
         # down-convert any Array inputs to numpy.ndarray 
@@ -119,15 +99,20 @@ class Array(np.ndarray):
                 )
 
     def _convert_result(self, result, pdim, *, out=None): 
-        if type(out) is Array:
-            if pdim:
+        if pdim:
+            if type(out) is Array:
                 out.pdim = pdim
                 return out
+            elif isinstance(result,np.ndarray):
+                r = result.view(Array)
+                r.pdim = pdim
+                return r
+            elif isinstance(result,np.number):
+                return Array([result],pdim=pdim)
             else:
-                return out.view(np.ndarray)
-        elif pdim:
-            r = result.view(Array)
-            r.pdim = pdim
-            return r
+                return Array(np.asarray(result),pdim=pdim)
         else:
-            return result
+            if type(out) is Array:
+                return out.view(np.ndarray)
+            else:
+                return result
