@@ -9,6 +9,10 @@ physical dimensionality.
 
 import numpy as np
 
+from ._funcs import output_pdim
+from ._funcs import same_pdim
+from ._funcs import assert_same_pdim
+
 from .exceptions import IncompatibleDimensions
 from .exceptions import UnsupportedUfunc
 from .dim import Dim
@@ -30,14 +34,15 @@ _UFUNC_MAPPING = {
     # number to angle: (N)->(A)
     "N_A" : ('arcsin','arccos','arctan'),
     # unary function returning same dimension as input: (X)->(X)
-    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate',),
+    "X_X" : ('negative','positive','absolute','fabs','invert','conj','conjugate',
+             'fabs',),
     # unary function returning number (or bool): (X)->(N)
-    "X_N" : ('sign','heaviside','isfinite',),
+    "X_N" : ('sign','heaviside','isfinite','isinf','isnan','signbit'),
     # pair of same dimension to boolean: (X,X)->(B)
     "XX_B" : ('less','less_equal','equal','not_equal','greater', 'greater_equal',),
     # pair of same dimension to returning same dimension as input: (X,X)->(X)
     "XX_X" : ('add','subtract','heaviside','hypot',
-              'maximum','fmax','minimum','fmin',),
+              'maximum','fmax','minimum','fmin'),
     # function multiplies units from input: (X,Y)->(XY)
     "mul" : ('multiply','matmul',),
     # function divides units from input: (X,Y)->(X/Y)
@@ -54,7 +59,8 @@ _UFUNC_MAPPING = {
     "fail" : ('radians','degrees','deg2rad','rad2deg',
              'bitwise_and', 'bitwise_or', 'bitwise_xor', 'invert',
              'left_shift','right_shift', 'logical_and', 'logical_or',
-             'logical_xor', 'logical_not',),
+             'logical_xor', 'logical_not','isnat','nextafter','spacing',
+              'modf','ldexp','frexp','floor','ceil','trunc'),
 }
 
 io_mapping = {
@@ -62,18 +68,6 @@ io_mapping = {
     for mapping, ufunc_list in _UFUNC_MAPPING.items()
     for fname in ufunc_list
 }
-
-# Convenience functions for testing for same dimensionality 
-
-def same_pdim(a,b):
-    try:
-        return a.pdim == b.pdim
-    except:
-        return False
-
-def assert_same_pdim(a,b):
-    if not same_pdim(a,b):
-        raise IncompatibleDimensions(a,b)
 
 # Convenience functions for testing input counts
 
@@ -91,10 +85,6 @@ def assert_two_inputs(ufunc,args):
 
 # Functions for validating ufunc inputs involviing a PhysDim.Array input
 #   and returning the appropriate physical dimensionality of each output
-
-def output_pdim(pdim):
-    return None if pdim.is_dimensionless else pdim
-
 
 def io_map_a_n(ufunc,obj,args):
     if not obj.pdim.is_angle:
@@ -213,6 +203,13 @@ def io_map_cbrt(ufunc,obj,args):
 def io_map_reciprocal(ufunc,obj,args):
     assert_one_input(ufunc,args)
     return output_pdim(obj.pdim ** -1)
+
+def io_map_copysign(ufunc,obj,args):
+    assert_two_inputs(ufunc,args)
+    if type(args[0]) is not type(obj):
+        return args[1].pdim
+    else:
+        return args[0].pdim
 
 def io_map_fail(ufunc,obj,args):
     raise UnsupportedUfunc(ufunc.__name__)
