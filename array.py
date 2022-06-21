@@ -12,25 +12,42 @@ pdim attribute (which is an instance of PhysDim.Dim)
 """
 
 import numpy as np
+from numbers import Number
 
 from . import _ufunc
+from . import Dim
 
 class Array(np.ndarray):
     __slot__ = ('pdim')
 
-    def __new__(cls, array=None, *, shape=None, pdim, **kwargs):
-        if array is not None:
-            if shape is not None:
-                raise TypeError(f"Cannot initialize {cls} with both shape and array")
-            try:
-                obj = np.asarray(array).view(cls)
-            except Exception as e:
-                raise TypeError(f"The input array must be a simple array of numbers:\n {e}")
-        else:
-            shape = shape if shape is not None else 1
-            obj = super().__new__(cls, shape, **kwargs)
+    def __new__(cls, *args, **kwargs):
+        parsed_args = _parse_args(args,kwargs)
+        if kwargs:
+            raise TypeError(" ".join(( 
+                "Unrecognized inputs to Array constructor:",
+                ", ".join(kwargs.keys()))))
+        if 'ref' in parsed_args:
+            obj = parsed_args['ref']
+            if 'scale' in parsed_args:
+                obj = parsed_args['scale'] * obj
+                # if ref is dimensionless, scaling will return a np.ndarray
+                if type(obj) is not Array:
+                    obj = obj.view(Array)
+                    obj.pdim = Dim()
+            else:
+                obj = parsed_args['ref']
 
-        obj.pdim = pdim
+        else:
+            if 'array' in parsed_args:
+                obj = parsed_args['array']
+            elif 'values' in parsed_args:
+                obj = np.array(parsed_args['values'])
+            elif 'scale' in parsed_args:
+                obj = np.array(parsed_args['scale'])
+            else:
+                obj = np.array(1)
+            obj = obj.view(Array)
+            obj.pdim = parsed_args['pdim'] if 'pdim' in parsed_args else Dim()
         return obj
 
     def __array_finalize__(self,obj):
@@ -89,30 +106,67 @@ class Array(np.ndarray):
             return results
 
         if ufunc.nout == 1:
-            return self._convert_result(results, pdim, out=out)
+            return _convert_result(results, pdim, out=out)
         else:
             if out is None:
                 out = (None,)*ufunc.nout
             return tuple(
-                self._convert_result(r,p,out=o)
+                _convert_result(r,p,out=o)
                 for r,p,o in zip(results, pdim, out)
                 )
 
-    def _convert_result(self, result, pdim, *, out=None): 
-        if pdim:
-            if type(out) is Array:
-                out.pdim = pdim
-                return out
-            elif isinstance(result,np.ndarray):
-                r = result.view(Array)
-                r.pdim = pdim
-                return r
-            elif isinstance(result,np.number):
-                return Array([result],pdim=pdim)
-            else:
-                return Array(np.asarray(result),pdim=pdim)
+# Support functions
+
+def _convert_result(result, pdim, *, out=None): 
+    if pdim:
+        if type(out) is Array:
+            out.pdim = pdim
+            return out
+        elif isinstance(result,np.ndarray):
+            r = result.view(Array)
+            r.pdim = pdim
+            return r
+        elif isinstance(result,np.number):
+            return Array([result],pdim=pdim)
         else:
-            if type(out) is Array:
-                return out.view(np.ndarray)
+            return Array(np.asarray(result),pdim=pdim)
+    else:
+        if type(out) is Array:
+            return out.view(np.ndarray)
+        else:
+            return result
+
+_exclusive_constructor_args = { 
+    ('ref','array'),('ref','values'),('ref','pdim'),
+    ('array','values'),('array','scale'),
+    ('scale','values'), }
+
+def _add_arg(args, arg, key):
+    if key in args:
+        raise TypeError(f"Can only specify one {key} argument")
+    for k in args.keys():
+        if (key,k) in _exclusive_constructor_args or (k,key) in _exclusive_constructor_args:
+            raise TypeError(f"Cannot specify both {key} and {k} arguments")
+    args[key] = arg
+
+def _parse_args(args,kwargs):
+    rval = {}
+    if 'pdim' in kwargs:
+        rval['pdim'] = kwargs['pdim']
+        del kwargs['pdim']
+    for arg in args:
+        if isinstance(arg,Array):
+            _add_arg(rval,arg,'ref')
+        elif isinstance(arg,np.ndarray):
+            if arg.size == 1:
+                _add_arg(rval,arg.flat[0],'scale')
             else:
-                return result
+                _add_arg(rval,arg,'array')
+        elif isinstance(arg,Dim):
+            _add_arg(rval,arg,'pdim')
+        elif isinstance(arg,Number):
+            _add_arg(rval,arg,'scale')
+        else:
+            _add_arg(rval,arg,'values')
+    return rval
+
