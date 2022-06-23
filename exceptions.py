@@ -16,6 +16,10 @@ class AttemptToRedefineUnit(RuntimeError):
     def __init__(self,name):
         RuntimeError.__init__(self, f"The {name} unit has already been defined")
 
+class AttemptToRedefineConstant(RuntimeError):
+    def __init__(self,name):
+        RuntimeError.__init__(self, f"The {name} constant has already been defined")
+
 class AttemptToAssignToUnit(RuntimeError):
     def __init__(self,name):
         RuntimeError.__init__(self,
