@@ -232,7 +232,6 @@ def io_map(ufunc,obj,args):
     io_map_name = io_mapping.get(fname,f"io_map_{fname}")
     io_map_func = globals().get(io_map_name,None)
     if io_map_func is None:
-        import pdb; pdb.set_trace()
         return NotImplemented
 
     return io_map_func(ufunc,obj,args)

@@ -4,9 +4,9 @@ This class captures the physical dimensionality of a measurable quantity
 without scale.  It does so by tracking the relevant exponents on 7 
 fundamental physical properties:
 
+    - Mass (M)
     - Length (L)
     - Time (T)
-    - Mass (M)
     - Angle (A)
     - Electric charge (E)
     - Absolute temperature (K)
@@ -22,26 +22,26 @@ from .exceptions import IncompatibleDimensions
 from .exceptions import NotDimLike
 
 _DERIVED_DIMS = {
-    (1,0,0,0,0,0,0):'length',
-    (0,1,0,0,0,0,0):'time',
-    (0,0,1,0,0,0,0):'mass',
+    (1,0,0,0,0,0,0):'mass',
+    (0,1,0,0,0,0,0):'length',
+    (0,0,1,0,0,0,0):'time',
     (0,0,0,1,0,0,0):'angle',
     (0,0,0,0,1,0,0):'charge',
     (0,0,0,0,0,1,0):'temperature',
     (0,0,0,0,0,0,1):'illumination',
-    (2,0,0,0,0,0,0):'area',
-    (3,0,0,0,0,0,0):'volume',
+    (0,2,0,0,0,0,0):'area',
+    (0,3,0,0,0,0,0):'volume',
     (0,0,0,2,0,0,0):'solid angle',
-    (0,-1,0,0,0,0,0):'frequency',
-    (-3,0,1,0,0,0,0):'density',
-    (1,-1,0,0,0,0,0):'velocity',
-    (0,-1,0,1,0,0,0):'angular velocity',
-    (1,-2,0,0,0,0,0):'acceleration',
-    (1,-1,1,0,0,0,0):'momentum',
-    (1,-2,1,0,0,0,0):'force',
-    (2,-2,1,0,0,0,0):'energy',
-    (2,-3,1,0,0,0,0):'power',
-    (-1,-2,1,0,0,0,0):'pressure',
+    (0,0,-1,0,0,0,0):'frequency',
+    (1,-3,0,0,0,0,0):'density',
+    (0,1,-1,0,0,0,0):'velocity',
+    (0,0,-1,1,0,0,0):'angular velocity',
+    (0,1,-2,0,0,0,0):'acceleration',
+    (1,1,-1,0,0,0,0):'momentum',
+    (1,1,-2,0,0,0,0):'force',
+    (1,2,-2,0,0,0,0):'energy or torque',
+    (1,2,-3,0,0,0,0):'power',
+    (1,-1,-2,0,0,0,0):'pressure',
 }
 
 
@@ -55,21 +55,21 @@ class PhysicalDimension(object):
         A PhysicalDimension object can be contructed by one of three methods:
 
             - specify the exponents for each of the fundamental properties:
+              - mass (number): optional 
               - length (number): optional 
               - time (number): optional 
-              - mass (number): optional 
               - angle (number): optional 
               - charge (number): optional 
               - temp (number): optional 
               - illum (number): optional 
 
             - specify a list of the exponents on the 7 fundamental properties:
-              - dim (tuple): (length, time, mass, angle, charge, temp, illum)
+              - dim (tuple): (mass, length, time, angle, charge, temp, illum)
 
             - copy constructor
               - dim (PhysicalDimension): existing PhysicalDimension object
         """
-        arg_exp = (length,time,mass,angle,charge,temp,illum)
+        arg_exp = (mass,length,time,angle,charge,temp,illum)
         if dim is not None:
             if np.any(arg_exp):
                 raise TypeError("Cannot specify both the dim tuple and individual exponents")
@@ -88,7 +88,7 @@ class PhysicalDimension(object):
                     raise TypeError(f"Exponents on dimensions must all be real numbers, not {dim}")
         else:
             # dim not specified, so we're using the kwargs arguments ( after verifying them )
-            keys = ('length','time','mass','angle','charge','temp','illum')
+            keys = ('mass','length','time','angle','charge','temp','illum')
             for k,v in zip(keys,arg_exp):
                 if not isinstance(v,numbers.Real):
                     raise TypeError(f"Exponent on {k} must be a real number, not {v}")
@@ -96,6 +96,8 @@ class PhysicalDimension(object):
 
         self._exp = exp
 
+    def __hash__(self):
+        return hash(self._exp)
 
     @property
     def is_dimensionless(self):
@@ -139,31 +141,32 @@ class PhysicalDimension(object):
         return PhysicalDimension(tuple(a*n for a in self._exp))
 
     def __repr__(self):
-        keys = ('length','time','mass','angle','charge','temp','illum')
+        keys = ('mass','length','time','angle','charge','temp','illum')
         return (f"PhysicalDimension("
                 + ",".join(f"{n}={e}" for n,e in zip(keys,self._exp) if e)
                 + ",)")
 
     def __str__(self):
-        if self._exp in _DERIVED_DIMS:
-            return _DERIVED_DIMS[self._exp]
+        return self.to_str()
 
-        names = ('L','T','M','A','C','K','I')
+    def to_str(self,names=()):
+        default_names = ('M','L','T','A','C','K','I')
+        names = names + default_names[len(names):]
+
         num = " ".join(f"{n}" if e==1 else f"{n}^{e}" for n,e in
                        zip(names,self._exp) if e>0)
         den = " ".join(f"{n}" if e==-1 else f"{n}^{-e}" for n,e in
                        zip(names,self._exp) if e<0)
 
-        if num:
-            if den:
-                return f"[{num}/{den}]"
-            else:
-                return f"[{num}]"
+        if num and den:
+            return f"[{num}/{den}]"
+        elif num:
+            return f"[{num}]"
         elif den:
             return f"[1/{den}]"
         else:
             return f"[]"
-        
 
-
-
+    @property
+    def type(self):
+        return _DERIVED_DIMS.get(self._exp, str(self))

@@ -2,9 +2,9 @@ import unittest
 
 from physdim import PhysicalDimension as Dim 
 
-_length = (1,0,0,0,0,0,0)
-_time = (0,1,0,0,0,0,0)
-_mass = (0,0,1,0,0,0,0)
+_mass = (1,0,0,0,0,0,0)
+_length = (0,1,0,0,0,0,0)
+_time = (0,0,1,0,0,0,0)
 _angle = (0,0,0,1,0,0,0)
 
 from physdim.exceptions import NotDimLike
@@ -32,7 +32,7 @@ class PhysicalDimTests(unittest.TestCase):
         v = Dim(v_dim)
         self.assertEqual(v._exp, v_dim)
 
-        v = Dim([1,-1,0,0,0,0,0])
+        v = Dim([0,1,-1,0,0,0,0])
         self.assertEqual(v._exp, v_dim)
 
     def test_init_copy(self):
@@ -86,9 +86,9 @@ class PhysicalDimTests(unittest.TestCase):
         lt = l * t
         self.assertEqual(lt._exp, tuple(a+b for a,b in zip(_length,_time)))
 
-        with self.assertRaises(NotDimLike) as cm:
+        with self.assertRaises(NotDimLike):
             lx = l * 5
-        with self.assertRaises(NotDimLike) as cm:
+        with self.assertRaises(NotDimLike):
             lx = 5 * l
 
     def test_div(self):
@@ -97,9 +97,9 @@ class PhysicalDimTests(unittest.TestCase):
         lt = l / t
         self.assertEqual(lt._exp, tuple(a-b for a,b in zip(_length,_time)))
 
-        with self.assertRaises(NotDimLike) as cm:
+        with self.assertRaises(NotDimLike):
             lx = l / 5
-        with self.assertRaises(NotDimLike) as cm:
+        with self.assertRaises(NotDimLike):
             lx = 5 / l
 
     def test_pow(self):
@@ -109,7 +109,7 @@ class PhysicalDimTests(unittest.TestCase):
         ll = l**3.2
         self.assertEqual(ll._exp,tuple(3.2*(a-b) for a,b in zip(_length,_time)))
 
-    def test_derived_dims(self):
+    def test_dim_types(self):
         l = Dim(_length)
         t = Dim(_time)
         m = Dim(_mass)
@@ -117,30 +117,88 @@ class PhysicalDimTests(unittest.TestCase):
         c = Dim((0,0,0,0,1,0,0))
         k = Dim((0,0,0,0,0,1,0))
         i = Dim((0,0,0,0,0,0,1))
-        self.assertEqual(str(l), "length")
-        self.assertEqual(str(t), "time")
-        self.assertEqual(str(m), "mass")
-        self.assertEqual(str(q), "angle")
-        self.assertEqual(str(c), "charge")
-        self.assertEqual(str(k), "temperature")
-        self.assertEqual(str(i), "illumination")
-        self.assertEqual(str(l*l), "area")
-        self.assertEqual(str(l**3), "volume")
-        self.assertEqual(str(q**2), "solid angle")
-        self.assertEqual(str(t**-1), "frequency")
-        self.assertEqual(str(m/l**3), "density")
-        self.assertEqual(str(l/t), "velocity")
-        self.assertEqual(str(q/t), "angular velocity")
-        self.assertEqual(str(l/t**2), "acceleration")
-        self.assertEqual(str(m*l/t), "momentum")
-        self.assertEqual(str(m*l/t**2), "force")
-        self.assertEqual(str(m*l**2/t**2), "energy")
-        self.assertEqual(str(m*l**2/t**3), "power")
-        self.assertEqual(str(m/(l*t**2)), "pressure")
 
+        self.assertEqual((m).type, "mass")
+        self.assertEqual((l).type, "length")
+        self.assertEqual((t).type, "time")
+        self.assertEqual((q).type, "angle")
+        self.assertEqual((c).type, "charge")
+        self.assertEqual((k).type, "temperature")
+        self.assertEqual((i).type, "illumination")
+        self.assertEqual((l*l).type, "area")
+        self.assertEqual((l**3).type, "volume")
+        self.assertEqual((q**2).type, "solid angle")
+        self.assertEqual((t**-1).type, "frequency")
+        self.assertEqual((m/l**3).type, "density")
+        self.assertEqual((l/t).type, "velocity")
+        self.assertEqual((q/t).type, "angular velocity")
+        self.assertEqual((l/t**2).type, "acceleration")
+        self.assertEqual((m*l/t).type, "momentum")
+        self.assertEqual((m*l/t**2).type, "force")
+        self.assertEqual((m*l**2/t**2).type, "energy or torque")
+        self.assertEqual((m*l**2/t**3).type, "power")
+        self.assertEqual((m/(l*t**2)).type, "pressure")
 
-       
+    def test_dim_string(self):
+        m = Dim(_mass)
+        l = Dim(_length)
+        t = Dim(_time)
+        q = Dim(_angle)
+        c = Dim((0,0,0,0,1,0,0))
+        k = Dim((0,0,0,0,0,1,0))
+        i = Dim((0,0,0,0,0,0,1))
 
+        self.assertEqual(str(m), "[M]")
+        self.assertEqual(str(l), "[L]")
+        self.assertEqual(str(t), "[T]")
+        self.assertEqual(str(q), "[A]")
+        self.assertEqual(str(c), "[C]")
+        self.assertEqual(str(k), "[K]")
+        self.assertEqual(str(i), "[I]")
+        self.assertEqual(str(l*l), "[L^2]")
+        self.assertEqual(str(l**3), "[L^3]")
+        self.assertEqual(str(q**2), "[A^2]")
+        self.assertEqual(str(t**-1), "[1/T]")
+        self.assertEqual(str(m/l**3), "[M/L^3]")
+        self.assertEqual(str(l/t), "[L/T]")
+        self.assertEqual(str(q/t), "[A/T]")
+        self.assertEqual(str(l/t**2), "[L/T^2]")
+        self.assertEqual(str(m*l/t), "[M L/T]")
+        self.assertEqual(str(m*l/t**2), "[M L/T^2]")
+        self.assertEqual(str(m*l**2/t**2), "[M L^2/T^2]")
+        self.assertEqual(str(m*l**2/t**3), "[M L^2/T^3]")
+        self.assertEqual(str(m/(l*t**2)), "[M/L T^2]")
 
+    def test_dim_base_units(self):
+        m = Dim(_mass)
+        l = Dim(_length)
+        t = Dim(_time)
+        q = Dim(_angle)
+        c = Dim((0,0,0,0,1,0,0))
+        k = Dim((0,0,0,0,0,1,0))
+        i = Dim((0,0,0,0,0,0,1))
+
+        base_units = ('kg','m','sec','rad','coul')
+
+        self.assertEqual((m).to_str(base_units), "[kg]")
+        self.assertEqual((l).to_str(base_units), "[m]")
+        self.assertEqual((t).to_str(base_units), "[sec]")
+        self.assertEqual((q).to_str(base_units), "[rad]")
+        self.assertEqual((c).to_str(base_units), "[coul]")
+        self.assertEqual((k).to_str(base_units), "[K]")
+        self.assertEqual((i).to_str(base_units), "[I]")
+        self.assertEqual((l*l).to_str(base_units), "[m^2]")
+        self.assertEqual((l**3).to_str(base_units), "[m^3]")
+        self.assertEqual((q**2).to_str(base_units), "[rad^2]")
+        self.assertEqual((t**-1).to_str(base_units), "[1/sec]")
+        self.assertEqual((m/l**3).to_str(base_units), "[kg/m^3]")
+        self.assertEqual((l/t).to_str(base_units), "[m/sec]")
+        self.assertEqual((q/t).to_str(base_units), "[rad/sec]")
+        self.assertEqual((l/t**2).to_str(base_units), "[m/sec^2]")
+        self.assertEqual((m*l/t).to_str(base_units), "[kg m/sec]")
+        self.assertEqual((m*l/t**2).to_str(base_units), "[kg m/sec^2]")
+        self.assertEqual((m*l**2/t**2).to_str(base_units), "[kg m^2/sec^2]")
+        self.assertEqual((m*l**2/t**3).to_str(base_units), "[kg m^2/sec^3]")
+        self.assertEqual((m/(l*t**2)).to_str(base_units), "[kg/m sec^2]")
 
 

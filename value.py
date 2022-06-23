@@ -48,7 +48,8 @@ import numpy as np
 from numbers import Number
 
 from .dim import PhysicalDimension
-from ._ufunc import io_map as ufunc_io_map
+from .ufunc import io_map as ufunc_io_map
+from .exceptions import IncompatibleDimensions
 
 class PhysicalValue(np.ndarray):
     __slot__ = ('pdim')
@@ -89,20 +90,28 @@ class PhysicalValue(np.ndarray):
             raise TypeError(f"Cannot create PhysicalValue for {self.dtype}")
         self.pdim = getattr(obj,'pdim',None)
 
-    @property 
-    def pdim_string(self):
-        return str(self.pdim)
-
     def __repr__(self):
         value = super().__repr__()
         pdim = self.pdim.__repr__()
         return f"{value[:-1]}, pdim={pdim})"
 
-    # @@@TODO: change pdim string to units once unit class is defined
     def __str__(self):
-        value = super().__str__()
-        pdim = self.pdim.__str__()
-        return f"{value} ({pdim})"
+        from .units import Units
+        u = Units()
+        unit_name, scale_factor = u.best_unit(self)
+        value = self.view(np.ndarray)
+        if scale_factor != 1:
+            value = value * scale_factor
+        return f"{value} {unit_name}"
+
+    def __getattr__(self,name):
+        from .units import Units
+        u = Units()
+        unit = getattr(u,name)
+        if unit.pdim != self.pdim:
+            raise IncompatibleDimensions(self,unit)
+        return self/unit
+
 
     @property
     def is_angle(self):
@@ -111,7 +120,6 @@ class PhysicalValue(np.ndarray):
     @property
     def is_dimensionless(self):
         return self.pdim.is_dimensionless
-
 
     def __array_ufunc__(self,ufunc,method,*args,out=None,**kwargs):
         pdim = ufunc_io_map(ufunc,self,args)
@@ -153,21 +161,15 @@ class PhysicalValue(np.ndarray):
 def _convert_result(result, pdim, *, out=None): 
     if pdim:
         if type(out) is PhysicalValue:
-            out.pdim = pdim
-            return out
+            result = out
         elif isinstance(result,np.ndarray):
-            r = result.view(PhysicalValue)
-            r.pdim = pdim
-            return r
-        elif isinstance(result,np.number):
-            return PhysicalValue([result],pdim=pdim)
+            result = result.view(PhysicalValue)
         else:
-            return PhysicalValue(np.asarray(result),pdim=pdim)
-    else:
-        if type(out) is PhysicalValue:
-            return out.view(np.ndarray)
-        else:
-            return result
+            result = np.asarray(result).view(PhysicalValue)
+        result.pdim = pdim
+    elif type(out) is PhysicalValue:
+        result = out.view(np.ndarray)
+    return result
 
 _invalid_arg_pairs = { 
     ('ref','array'),('ref','values'),('ref','pdim'),

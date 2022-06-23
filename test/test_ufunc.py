@@ -6,7 +6,7 @@ import numbers
 from physdim import PhysicalValue as PV
 from physdim import PhysicalDimension as Dim
 
-import physdim._ufunc as ufunc
+import physdim.ufunc as ufunc
 
 from physdim.exceptions import IncompatibleDimensions
 from physdim.exceptions import UnsupportedUfunc
