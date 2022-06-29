@@ -52,6 +52,8 @@ from .ufunc import io_map as ufunc_io_map
 from .exceptions import IncompatibleDimensions
 
 class PhysicalValue(np.ndarray):
+    repr_is_str = False
+
     __slot__ = ('pdim')
 
     def __new__(cls, *args, **kwargs):
@@ -91,6 +93,8 @@ class PhysicalValue(np.ndarray):
         self.pdim = getattr(obj,'pdim',None)
 
     def __repr__(self):
+        if PhysicalValue.repr_is_str:
+            return self.__str__()
         value = super().__repr__()
         pdim = self.pdim.__repr__()
         return f"{value[:-1]}, pdim={pdim})"

@@ -61,7 +61,7 @@ from numbers import Number
 # Because this is a singleton class, we have the option of putting all
 #   of the properties either at file scope or as class attributes.
 # We are going with the former.
-_FundamentalUnits = ('kg','m','s','rad','coul','K','cd')
+_FundamentalUnits = ('kg','m','sec','rad','coul','K','cd')
 
 # define constants for each of the fundamental dimensions
 _MassDim   = PhysicalDimension(mass=1)
@@ -170,7 +170,7 @@ class Units (object):
     def add_base_units(self):
         self.add('kg',mass=1)
         self.add('m',length=1, scale_limits=(None,3))
-        self.add('s',time=1, scale_limits=(None,0))
+        self.add('sec',time=1, scale_limits=(None,0))
         self.add('rad',angle=1, scale_limits=(-3,0))
         self.add('C',charge=1)
         self.add('K',temp=1)
@@ -179,7 +179,7 @@ class Units (object):
         # synonyms
         self.add('g',0.001,self.kg, scale_limits=(None,3))
         self.add('cm',0.01,self.m)
-        self.add('sec',self.s, can_scale=True)
+        self.add('s',self.sec)
         self.add('coul',self.C)
 
     def add_angle_units(self):
